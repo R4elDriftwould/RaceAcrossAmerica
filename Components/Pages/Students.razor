@@ -1,0 +1,81 @@
+﻿@page "/students"
+@inject ApplicationDbContext DbContext
+
+<h3>Student Admin</h3>
+
+<div style="margin-bottom: 20px;">
+    <input @bind="newStudentName" placeholder="Student Name" />
+    <button @onclick="AddStudent">Add Student</button>
+</div>
+
+@if (students == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Laps Run</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var student in students)
+            {
+                <tr>
+                    <td>@student.StudentId</td>
+                    <td>@student.Name</td>
+                    <td>@student.LapsRun</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+
+@code {
+    // This list will hold the students from the database
+    private List<Student> students;
+
+    // This string will hold the name from the input box
+    private string newStudentName;
+
+    // This method runs automatically when the page loads
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStudents();
+    }
+
+    // This method gets all students from the database
+    private async Task LoadStudents()
+    {
+        students = await DbContext.Students.ToListAsync();
+    }
+
+    // This method is called when you click the "Add Student" button
+    private async Task AddStudent()
+    {
+        if (!string.IsNullOrWhiteSpace(newStudentName))
+        {
+            // Create a new Student object
+            var studentToAdd = new Student
+            {
+                Name = newStudentName,
+                LapsRun = 0 // Default to 0 laps
+            };
+
+            // Add it to the DbContext
+            DbContext.Students.Add(studentToAdd);
+
+            // Save the changes to the database
+            await DbContext.SaveChangesAsync();
+
+            // Clear the input box and reload the table
+            newStudentName = string.Empty;
+            await LoadStudents();
+        }
+    }
+}
