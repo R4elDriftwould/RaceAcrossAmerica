@@ -1,94 +1,189 @@
 ﻿@page "/students"
 @inject ApplicationDbContext DbContext
+@inject IJSRuntime JSRuntime
 
-<h3>Student Admin</h3>
 
-<div style="margin-bottom: 20px;">
-    <input @bind="newStudentName" placeholder="Student Name" />
-    <button @onclick="AddStudent">Add Student</button>
+<div style="display: grid; grid-template-columns: 1fr 2fr; grid-gap: 2rem;">
+    
+    <div>
+        <FluentCard>
+            <h4>Add New Student</h4>
+    
+            <div style="display: grid; grid-template-columns: 1fr; grid-gap: 1rem; margin-bottom: 1rem;">
+                <FluentTextField @bind-Value="newStudent.Name" Label="Student Name" />
+        
+                <FluentSelect TOption="Group"
+                              Items="@allGroups"
+                              OptionValue="@(g => g.GroupId.ToString())"
+                              OptionText="@(g => g.Name)"
+                              @bind-Value="newStudentGroupIdString"  
+                              Label="Assign to Group (Optional)">
+                    <InitialValue>Select a group...</InitialValue>
+                </FluentSelect>
+            </div>
+            <FluentButton Appearance="Appearance.Accent" @onclick="AddStudentAsync">Add Student</FluentButton>
+        </FluentCard>
+
+        <FluentCard style="margin-top: 2rem;">
+            <h4>Manage Groups</h4>
+            <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+                <FluentTextField @bind-Value="newGroupName" Placeholder="New Group Name" Style="flex-grow: 1;" />
+                <FluentButton Appearance="Appearance.Accent" @onclick="AddGroupAsync">Create Group</FluentButton>
+            </div>
+
+            <h5>Existing Groups</h5>
+            @if (allGroups == null)
+            {
+                <p><em>Loading groups...</em></p>
+            }
+            else if (!allGroups.Any())
+            {
+                <p>No groups created yet.</p>
+            }
+            else
+            {
+                <FluentDataGrid TGridItem="Group" Items="@allGroups.AsQueryable()" GridTemplateColumns="1fr auto">
+                    <TemplateColumn Title="Group Name">
+                        @context.Name
+                    </TemplateColumn>
+                    <TemplateColumn Title="">
+                        <FluentButton Appearance="Appearance.Stealth" @onclick="() => DeleteGroupAsync(context)">
+                            Delete
+                        </FluentButton>
+                    </TemplateColumn>
+                </FluentDataGrid>
+            }
+        </FluentCard>
+    </div>
+
+    <div>
+        <FluentCard>
+            <h3>Student List</h3>
+            @if (students == null)
+            {
+                <p><em>Loading...</em></p>
+            }
+            else
+            {
+                <FluentDataGrid TGridItem="Student" Items="@students.AsQueryable()" GridTemplateColumns="0.5fr 1.5fr 1fr 1fr 0.5fr">
+                    <TemplateColumn Title="ID">
+                        @context.StudentId
+                    </TemplateColumn>
+                    <TemplateColumn Title="Name">
+                        @context.Name
+                    </TemplateColumn>
+                    <TemplateColumn Title="Group">
+                        @(context.Group?.Name ?? "N/A") </TemplateColumn>
+                    <TemplateColumn Title="Laps Run">
+                        @context.LapsRun
+                    </TemplateColumn>
+                    <TemplateColumn Title="">
+                        <FluentButton Appearance="Appearance.Stealth" @onclick="() => DeleteStudentAsync(context)">
+                            Delete
+                        </FluentButton>
+                    </TemplateColumn>
+                </FluentDataGrid>
+            }
+        </FluentCard>
+    </div>
 </div>
-
-@if (students == null)
-{
-    <p><em>Loading...</em></p>
-}
-else
-{
-
-    <FluentDataGrid TGridItem="Student" Items="@students.AsQueryable()" GridTemplateColumns="1fr 1fr 1fr 0.5fr">
-        <TemplateColumn Title="ID">
-            @context.StudentId
-        </TemplateColumn>
-        <TemplateColumn Title="Name">
-            @context.Name
-        </TemplateColumn>
-        <TemplateColumn Title="Laps Run">
-            @context.LapsRun
-        </TemplateColumn>
-
-        <TemplateColumn Title="">
-            <FluentButton Appearance="Appearance.Stealth" @onclick="() => DeleteStudentAsync(context)">
-                Delete
-            </FluentButton>
-        </TemplateColumn>
-    </FluentDataGrid>
-}
 
 
 @code {
-    // This list will hold the students from the database
     private List<Student> students;
+    private Student newStudent = new Student(); // <-- CHANGED from newStudentName
+    
+    private List<Group> allGroups; // <-- ADDED
+    private string newGroupName; // <-- ADDED
 
-    // This string will hold the name from the input box
-    private string newStudentName;
+    private string newStudentGroupIdString; // <-- ADD THIS
 
-    // This method runs automatically when the page loads
     protected override async Task OnInitializedAsync()
     {
         await LoadStudents();
+        await LoadGroups(); // <-- ADDED
     }
 
-    // This method gets all students from the database
     private async Task LoadStudents()
     {
-        //SELECT * FROM Students
-        students = await DbContext.Students.ToListAsync();
+        // MODIFIED to Include Group data for the grid
+        students = await DbContext.Students
+            .Include(s => s.Group) // Eager load the related Group
+            .OrderBy(s => s.Name)
+            .ToListAsync();
     }
 
-    // This method is called when you click the "Add Student" button
-    private async Task AddStudent()
+    // --- NEW METHOD ---
+    private async Task LoadGroups()
     {
-        if (!string.IsNullOrWhiteSpace(newStudentName))
+        allGroups = await DbContext.Groups.OrderBy(g => g.Name).ToListAsync();
+    }
+
+    // --- REPLACE THE AddStudentAsync METHOD WITH THIS ---
+    private async Task AddStudentAsync()
+    {
+        if (newStudent != null && !string.IsNullOrWhiteSpace(newStudent.Name))
         {
-            // Create a new Student object
-            var studentToAdd = new Student
+            // Convert the string ID from the dropdown to an int?
+            if (int.TryParse(newStudentGroupIdString, out int groupId) && groupId > 0)
             {
-                // Binded newStudentName in <input> @bind="newStudentName"
-                Name = newStudentName,
-                LapsRun = 0 // Default to 0 laps
-            };
+                newStudent.GroupId = groupId;
+            }
+            else
+            {
+                newStudent.GroupId = null; // No group selected
+            }
 
-            // Add it to the DbContext
-            DbContext.Students.Add(studentToAdd);
-
-            // Save the changes to the database
+            DbContext.Students.Add(newStudent);
             await DbContext.SaveChangesAsync();
 
-            // Clear the input box and reload the table
-            newStudentName = string.Empty;
+            newStudent = new Student(); // Clear the form object
+            newStudentGroupIdString = null; // <-- Also clear the dropdown string
             await LoadStudents();
+        }
+    }
+    // --- END OF REPLACEMENT ---
+
+    // --- NEW METHOD ---
+    private async Task AddGroupAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(newGroupName))
+        {
+            var newGroup = new Group { Name = newGroupName };
+            DbContext.Groups.Add(newGroup);
+            await DbContext.SaveChangesAsync();
+            newGroupName = string.Empty;
+            await LoadGroups(); // Refresh the groups list
         }
     }
 
     private async Task DeleteStudentAsync(Student studentToDelete)
     {
-        // 1. Tell DbContext to remove the student
         DbContext.Students.Remove(studentToDelete);
-
-        // 2. Save the change
         await DbContext.SaveChangesAsync();
-
-        // 3. Refresh the grid
         await LoadStudents();
+    }
+
+    // --- NEW METHOD ---
+    private async Task DeleteGroupAsync(Group groupToDelete)
+    {
+        // First, we must update all students in this group to have no group.
+        // This avoids a foreign key constraint error.
+        var studentsInGroup = await DbContext.Students
+            .Where(s => s.GroupId == groupToDelete.GroupId)
+            .ToListAsync();
+            
+        foreach (var student in studentsInGroup)
+        {
+            student.GroupId = null; // Set their group to null
+        }
+        await DbContext.SaveChangesAsync(); // Save this change first
+
+        // Now that no students are linked to this group, we can safely delete it.
+        DbContext.Groups.Remove(groupToDelete);
+        await DbContext.SaveChangesAsync();
+        
+        await LoadGroups();   // Refresh group list
+        await LoadStudents(); // Refresh student list (to show "N/A" for the students we just updated)
     }
 }

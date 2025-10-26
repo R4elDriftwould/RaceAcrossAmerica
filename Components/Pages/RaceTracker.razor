@@ -1,34 +1,51 @@
 ﻿@page "/"
 @inject ApplicationDbContext DbContext
+@inject IJSRuntime JSRuntime
 
 
 @if (activeRace != null)
 {
     <FluentCard>
-        <h4>@activeRace.Name</h4>
-
         <div style="margin-bottom: 1rem; display: flex; align-items: flex-end; gap: 1rem;">
-            <div>
-            <FluentLabel>Select Student:</FluentLabel>
-            <FluentSelect TOption="Student"
-                          Items="@allStudents"
-                          OptionValue="@(p => p.StudentId.ToString())"
-                          OptionText="@(p => p.Name)"
-                          @bind-Value="@selectedStudentString"
-                          @bind-Value:after="SelectedStudentChanged" />
-            </div>
+            
+            @if (allRaces != null)
+            {
+                <div>
+                    <FluentLabel>Select Race:</FluentLabel>
+                    <FluentSelect TOption="Race"
+                                  Items="@allRaces"
+                                  OptionValue="@(r => r.RaceId.ToString())"
+                                  OptionText="@(r => $"{r.Name} ({r.Year})")"
+                                  @bind-Value="selectedRaceId"
+                                  @bind-Value:after="HandleRaceChangeAsync"
+                                  Style="width: 250px;" />
+                </div>
+            }
+
+            @if (allStudents != null)
+            {
+                <div>
+                    <FluentLabel>Select Student:</FluentLabel>
+                    <FluentSelect TOption="Student"
+                                  Items="@allStudents"
+                                  OptionValue="@(p => p.StudentId.ToString())"
+                                  OptionText="@(p => p.Name)"
+                                  @bind-Value="@selectedStudentString"
+                                  @bind-Value:after="SelectedStudentChanged" />
+                </div>
+            }
+            
             <FluentButton Appearance="Appearance.Stealth" @onclick="ClearStudentSelection">
                 Show All
             </FluentButton>
         </div>
 
-        
-        
+        <h4>@activeRace.Name</h4>
+
         <div style="position: relative;">
             <img src="/images/us_map.png" style="width: 100%;" />
 
             <svg style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5;">
-
                 @{
                     var orderedCheckpoints = activeRace.Checkpoints.OrderBy(c => c.CumulativeMiles).ToList();
                     for (int i = 0; i < orderedCheckpoints.Count - 1; i++)
@@ -43,16 +60,11 @@
                 @if (selectedStudent != null)
                 {
                     var studentMiles = selectedStudent.LapsRun * 50;
-                    // GetStudentPath should return the points IN ORDER, including the start and the final interpolated position
                     var studentPathPoints = GetStudentPath(studentMiles);
-
-                    // Draw line segments between consecutive points in the student's path
                     for (int i = 0; i < studentPathPoints.Count - 1; i++)
                     {
                         var p1 = studentPathPoints[i];
                         var p2 = studentPathPoints[i + 1];
-
-                        // Ensure coordinates are valid before drawing the line segment
                         if (p1.X >= 0 && p1.Y >= 0 && p2.X >= 0 && p2.Y >= 0)
                         {
                             <line x1="@(p1.X)%" y1="@(p1.Y)%"
@@ -67,25 +79,21 @@
             {
                 <div class="checkpoint-pin" 
                      style="left: @(cp.X)%; top: @(cp.Y)%; z-index: 10;"
-                     @onclick="() => SelectCheckpoint(cp)"> <FluentTooltip AnchorId="@($"pin-{cp.CheckpointId}")" Delay="0">
+                     @onclick="() => SelectCheckpoint(cp)">
+                    <FluentTooltip AnchorId="@($"pin-{cp.CheckpointId}")" Delay="0">
                         @cp.City, @cp.State (@cp.CumulativeMiles mi)
                     </FluentTooltip>
                     <div id="@($"pin-{cp.CheckpointId}")"></div>
                 </div>
             }
 
-            @* --- ADD THIS NEW BLOCK for the Student Hover Popup --- *@
-            @if (hoveredStudent != null && selectedStudent == null) // Show only on hover AND in "Show All" mode
+            @if (hoveredStudent != null && selectedStudent == null)
             {
                 var hoverMiles = hoveredStudent.LapsRun * 50;
                 var (hoverX, hoverY) = GetStudentInterpolatedPosition(hoverMiles);
-
-                // Basic popup similar to checkpoint popup
                 <div class="student-hover-popup" style="left: @(hoverX)%; top: @(hoverY)%; z-index: 25;">
-                    @* Higher z-index *@
                     <div class="popup-header">
                         <strong>@hoveredStudent.Name</strong>
-                        @* No close button needed, disappears on mouseleave *@
                     </div>
                     <div class="popup-body">
                         <p>@hoverMiles miles</p>
@@ -93,9 +101,8 @@
                     </div>
                 </div>
             }
-            @* --- END of Student Hover Popup Block --- *@
-
-            @if (allStudents != null) // Ensure students are loaded
+            
+            @if (allStudents != null)
             {
                 if (selectedStudent != null)
                 {
@@ -103,8 +110,7 @@
                     var studentMiles = selectedStudent.LapsRun * 50;
                     var currentLocation = GetCurrentLocation(studentMiles);
                     var (studentX, studentY) = GetStudentInterpolatedPosition(studentMiles);
-
-                    @if (studentX >= 0) // Check if position is valid
+                    @if (studentX >= 0)
                     {
                         <div class="student-pin" style="left: @(studentX)%; top: @(studentY)%; z-index: 10;">
                             <FluentTooltip AnchorId="@($"student-pin-{selectedStudent.StudentId}")" Delay="0">
@@ -122,16 +128,13 @@
                         var studentMiles = student.LapsRun * 50;
                         var currentLocation = GetCurrentLocation(studentMiles);
                         var (studentX, studentY) = GetStudentInterpolatedPosition(studentMiles);
-
-                        @if (studentX >= 0) // Check if position is valid
+                        @if (studentX >= 0)
                         {
-                            // --- ADD @onmouseenter, @onmouseleave, @onclick ---
                             <div class="student-pin"
                                  style="left: @(studentX)%; top: @(studentY)%; z-index: 10;"
                                  @onmouseenter="() => StudentPinMouseEnter(student)"
                                  @onmouseleave="StudentPinMouseLeave"
                                  @onclick="() => SelectStudentFromPin(student)">
-                                 @* Use the existing FluentTooltip for accessibility/fallback *@
                                 <FluentTooltip AnchorId="@($"student-pin-{student.StudentId}")" Delay="0">
                                     @student.Name: @studentMiles miles (@currentLocation)
                                 </FluentTooltip>
@@ -141,6 +144,7 @@
                     }
                 }
             }
+
             @if (selectedCheckpoint != null)
             {
                 <div class="checkpoint-popup" style="left: @(selectedCheckpoint.X)%; top: @(selectedCheckpoint.Y)%; z-index: 20;">
@@ -167,6 +171,10 @@
             }
         </div>
     </FluentCard>
+}
+else
+{
+    <p><em>Loading race data... (No races found. Please create one in the Admin panel).</em></p>
 }
 
 
@@ -220,38 +228,75 @@ else
     private Race activeRace; // <-- ADD THIS
     private Student selectedStudent;
 
+    private List<Race> allRaces; // <-- NEW
+    private string selectedRaceId; // <-- NEW: This holds the ID from the dropdown
+
     private string selectedStudentString;
     private Checkpoint selectedCheckpoint; // <-- ADD THIS
     private List<Student> studentsAtCheckpoint = new List<Student>(); // <-- ADD THIS
 
+    // Student Pin Hover and Click Functionality
+    private Student hoveredStudent; // To track which student pin is hovered
 
     protected override async Task OnInitializedAsync()
     {
         await LoadStudents();
-        await LoadRace();
+        await LoadAllRaces(); // <-- NEW: Load all races for the dropdown
 
-        if (allStudents != null && allStudents.Any())
+        // Load first race by default
+        if (allRaces != null && allRaces.Any())
         {
-            selectedStudent = allStudents.First();
-            selectedStudentString = selectedStudent.StudentId.ToString(); // <-- ADD THIS LINE
+            var firstRace = allRaces.First();
+            selectedRaceId = firstRace.RaceId.ToString(); // <-- SET THE STRING ID
+            await LoadActiveRaceData(firstRace.RaceId); // <-- Load using the INT ID
+        }
+
+        // Select first student by default
+        if (allStudents != null && allStudents.Any() && selectedStudent == null)
+        {
+            // selectedStudent = allStudents.First(); // Let's NOT select a student by default anymore
+            // selectedStudentString = selectedStudent.StudentId.ToString();
+            ClearStudentSelection(); // Default to "Show All"
         }
     }
 
     private async Task LoadStudents()
     {
-        allStudents = await DbContext.Students.ToListAsync();
+        allStudents = await DbContext.Students.Include(s => s.Group).ToListAsync();
     }
 
     // --- ADD THIS NEW METHOD ---
-    private async Task LoadRace()
+    // --- NEW METHOD ---
+    private async Task LoadAllRaces()
     {
-        // Load the first race in the database AND its checkpoints
-        // We sort by ID to get a predictable "first" race.
+        allRaces = await DbContext.Races.OrderByDescending(r => r.Year).ThenBy(r => r.Name).ToListAsync();
+    }
+
+    // --- RENAMED & MODIFIED METHOD --- (was LoadRace())
+    private async Task LoadActiveRaceData(int raceId)
+    {
         activeRace = await DbContext.Races
             .Include(r => r.Checkpoints)
-            .OrderBy(r => r.RaceId)
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(r => r.RaceId == raceId);
     }
+
+    // --- NEW HANDLER METHOD ---
+    // --- REPLACE THE HandleRaceChangeAsync METHOD WITH THIS ---
+    private async Task HandleRaceChangeAsync()
+    {
+        // Parse the string ID from the dropdown back into an integer
+        if (int.TryParse(selectedRaceId, out int raceId))
+        {
+            await LoadActiveRaceData(raceId);
+        }
+
+        ClearStudentSelection();
+        selectedCheckpoint = null;
+        studentsAtCheckpoint.Clear();
+
+        StateHasChanged();
+    }
+    // --- END OF REPLACEMENT ---
 
     private async Task AddLap(Student studentToUpdate)
     {
@@ -500,9 +545,6 @@ else
 
 
 
-    // Student Pin Hover and Click Functionality
-    private Student hoveredStudent; // To track which student pin is hovered
-
     // --- NEW METHOD to handle clicking a student pin ---
     private void SelectStudentFromPin(Student studentToSelect)
     {
@@ -561,6 +603,7 @@ else
         transform: translate(-50%, -50%);
         box-shadow: 0 2px 5px rgba(0,0,0,0.4);
         z-index: 10; /* Make sure student pins are on top of checkpoint pins */
+        cursor: pointer; /* -- ADDED so it's obvious you can click it */
     }
 
     .student-pin:hover {

@@ -13,5 +13,7 @@ namespace RaceAcrossAmerica.Data
 
         public DbSet<Race> Races { get; set; }
         public DbSet<Checkpoint> Checkpoints { get; set; }
+
+        public DbSet<Group> Groups { get; set; }
     }
 }
