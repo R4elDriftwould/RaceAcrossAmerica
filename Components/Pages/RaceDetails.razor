@@ -1,0 +1,80 @@
+﻿@page "/admin/race/{RaceId:int}"  
+@inject ApplicationDbContext DbContext  
+@inject NavigationManager NavManager  
+
+@if (race == null)  
+{  
+    <p><em>Loading race details...</em></p>  
+}  
+else  
+{  
+    <h3>Manage: @race.Name (@race.Year)</h3>
+
+    <FluentCard style="margin-bottom: 2rem;">
+        <h4>Add New Checkpoint</h4>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; grid-gap: 1rem;">
+
+            <div>
+                <FluentTextField @bind-Value="newCheckpoint.City" Label="City" />
+            </div>
+
+            <div>
+                <FluentTextField @bind-Value="newCheckpoint.State" Label="State" />
+            </div>
+
+            <div>
+                <FluentNumberField @bind-Value="newCheckpoint.CumulativeMiles" Label="Cumulative Miles" />
+            </div>
+
+        </div>
+        <FluentButton Appearance="Appearance.Accent" @onclick="AddCheckpointAsync" style="margin-top: 1rem;">
+            Add Checkpoint
+        </FluentButton>
+    </FluentCard>
+
+    <FluentCard>  
+        <h4>Existing Checkpoints</h4>
+        <FluentDataGrid TGridItem="Checkpoint" Items="@race.Checkpoints.OrderBy(c => c.CumulativeMiles).AsQueryable()" GridTemplateColumns="1fr 1fr 1fr">
+            <TemplateColumn Title="City">  
+                @context.City  
+            </TemplateColumn>  
+            <TemplateColumn Title="State">  
+                @context.State  
+            </TemplateColumn>  
+            <TemplateColumn Title="Miles">  
+                @context.CumulativeMiles  
+            </TemplateColumn>  
+        </FluentDataGrid>  
+    </FluentCard>  
+
+    <FluentAnchor Href="/admin" Appearance="Appearance.Hypertext" style="margin-top: 1rem;">  
+        &larr; Back to Admin  
+    </FluentAnchor>  
+}  
+
+@code {  
+    [Parameter]  
+    public int RaceId { get; set; }  
+
+    private Race race;  
+    private Checkpoint newCheckpoint = new Checkpoint();  
+
+    protected override async Task OnParametersSetAsync()  
+    {  
+        race = await DbContext.Races  
+            .Include(r => r.Checkpoints)  
+            .FirstOrDefaultAsync(r => r.RaceId == RaceId);  
+    }  
+
+    private async Task AddCheckpointAsync()  
+    {  
+        if (race != null && !string.IsNullOrWhiteSpace(newCheckpoint.City))  
+        {  
+            newCheckpoint.RaceId = race.RaceId;  
+            DbContext.Checkpoints.Add(newCheckpoint);  
+            await DbContext.SaveChangesAsync();  
+            race.Checkpoints.Add(newCheckpoint);  
+            newCheckpoint = new Checkpoint();  
+        }  
+    }  
+}

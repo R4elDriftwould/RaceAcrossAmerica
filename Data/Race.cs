@@ -12,5 +12,11 @@ namespace RaceAcrossAmerica.Data
         public int Semester { get; set; }
 
         public virtual ICollection<Checkpoint> Checkpoints { get; set; }
+
+        public Race()
+        {
+            // This ensures the collection is an empty list, not null.
+            Checkpoints = new List<Checkpoint>();
+        }
     }
 }

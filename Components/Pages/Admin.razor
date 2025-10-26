@@ -1,0 +1,86 @@
+﻿@page "/admin"
+@inject ApplicationDbContext DbContext
+
+<h3>Admin Panel</h3>
+
+<FluentCard style="margin-bottom: 2rem;">
+    <h4>Create New Race</h4>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; grid-gap: 1rem;">
+        <FluentTextField @bind-Value="newRace.Name" Label="Race Name" Placeholder="e.g., Race Across America" />
+        <FluentNumberField @bind-Value="newRace.Year" Label="Year" Placeholder="e.g., 2026" />
+        <FluentNumberField @bind-Value="newRace.Semester" Label="Semester" Placeholder="e.g., 1 for Fall, 2 for Spring" />
+    </div>
+
+    <FluentButton Appearance="Appearance.Accent" @onclick="AddRaceAsync" style="margin-top: 1rem;">
+        Create Race
+    </FluentButton>
+</FluentCard>
+
+
+<FluentCard>
+    <h4>Existing Races</h4>
+
+    @if (races == null)
+    {
+        <p><em>Loading races...</em></p>
+    }
+    else
+    {
+        <FluentDataGrid TGridItem="Race" Items="@races.AsQueryable()" GridTemplateColumns="1fr 1fr 1fr 100px">
+            <TemplateColumn Title="Race Name">
+                @context.Name
+            </TemplateColumn>
+            <TemplateColumn Title="Year">
+                @context.Year
+            </TemplateColumn>
+            <TemplateColumn Title="Semester">
+                @context.Semester
+            </TemplateColumn>
+            <TemplateColumn Title="">
+                <FluentAnchor Href="@($"admin/race/{context.RaceId}")" Appearance="Appearance.Hypertext">
+                    Manage
+                </FluentAnchor>
+            </TemplateColumn>
+        </FluentDataGrid>
+    }
+</FluentCard>
+
+
+@code {
+    // This will hold the list of all races from the DB
+    private List<Race> races;
+
+    // This will hold the data from the form fields
+    private Race newRace = new Race();
+
+    // Load the list of races when the page starts
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRaces();
+    }
+
+    private async Task LoadRaces()
+    {
+        // Get all races from the database
+        races = await DbContext.Races.ToListAsync();
+    }
+
+    private async Task AddRaceAsync()
+    {
+        if (newRace != null && !string.IsNullOrWhiteSpace(newRace.Name) && newRace.Year > 2000)
+        {
+            // 1. Add the new race object to the DbContext
+            DbContext.Races.Add(newRace);
+
+            // 2. Save the changes to the database
+            await DbContext.SaveChangesAsync();
+
+            // 3. Clear the form by creating a new empty object
+            newRace = new Race();
+
+            // 4. Refresh the list of races on the page
+            await LoadRaces();
+        }
+    }
+}
