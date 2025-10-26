@@ -12,20 +12,24 @@ else
 
     <FluentCard style="margin-bottom: 2rem;">
         <h4>Add New Checkpoint</h4>
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; grid-gap: 1rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 0.5fr 0.5fr; grid-gap: 1rem;">
 
             <div>
                 <FluentTextField @bind-Value="newCheckpoint.City" Label="City" />
             </div>
-
             <div>
                 <FluentTextField @bind-Value="newCheckpoint.State" Label="State" />
             </div>
-
             <div>
                 <FluentNumberField @bind-Value="newCheckpoint.CumulativeMiles" Label="Cumulative Miles" />
             </div>
 
+            <div>
+                <FluentNumberField @bind-Value="newCheckpoint.X" Label="X %" />
+            </div>
+            <div>
+                <FluentNumberField @bind-Value="newCheckpoint.Y" Label="Y %" />
+            </div>
         </div>
         <FluentButton Appearance="Appearance.Accent" @onclick="AddCheckpointAsync" style="margin-top: 1rem;">
             Add Checkpoint
@@ -43,7 +47,17 @@ else
             </TemplateColumn>  
             <TemplateColumn Title="Miles">  
                 @context.CumulativeMiles  
-            </TemplateColumn>  
+            </TemplateColumn>
+            <TemplateColumn Title=" X , Y ">
+                @context.X , @context.Y
+            </TemplateColumn>
+
+            <TemplateColumn Title="">
+                <FluentButton Appearance="Appearance.Stealth" @onclick="() => DeleteCheckpointAsync(context)">
+                    Delete
+                </FluentButton>
+            </TemplateColumn>
+
         </FluentDataGrid>  
     </FluentCard>  
 
@@ -52,29 +66,61 @@ else
     </FluentAnchor>  
 }  
 
-@code {  
-    [Parameter]  
-    public int RaceId { get; set; }  
+@code {
+    [Parameter]
+    public int RaceId { get; set; }
 
-    private Race race;  
-    private Checkpoint newCheckpoint = new Checkpoint();  
+    private Race race;
+    private Checkpoint newCheckpoint = new Checkpoint();
 
-    protected override async Task OnParametersSetAsync()  
-    {  
-        race = await DbContext.Races  
-            .Include(r => r.Checkpoints)  
-            .FirstOrDefaultAsync(r => r.RaceId == RaceId);  
-    }  
+    // This method runs when the page first loads
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadRaceDetails();
+    }
 
-    private async Task AddCheckpointAsync()  
-    {  
-        if (race != null && !string.IsNullOrWhiteSpace(newCheckpoint.City))  
-        {  
-            newCheckpoint.RaceId = race.RaceId;  
-            DbContext.Checkpoints.Add(newCheckpoint);  
-            await DbContext.SaveChangesAsync();  
-            race.Checkpoints.Add(newCheckpoint);  
-            newCheckpoint = new Checkpoint();  
-        }  
-    }  
+    // --- NEW METHOD ---
+    // We moved the loading logic into its own method
+    // so we can call it anytime we need to refresh.
+    private async Task LoadRaceDetails()
+    {
+        // Load the single race from the DB, AND include its related checkpoints
+        race = await DbContext.Races
+            .Include(r => r.Checkpoints)
+            .FirstOrDefaultAsync(r => r.RaceId == RaceId);
+    }
+
+    // --- UPDATED METHOD ---
+    private async Task AddCheckpointAsync()
+    {
+        if (race != null && !string.IsNullOrWhiteSpace(newCheckpoint.City))
+        {
+            // 1. Set the Foreign Key
+            newCheckpoint.RaceId = race.RaceId;
+
+            // 2. Add to DbContext and Save
+            DbContext.Checkpoints.Add(newCheckpoint);
+            await DbContext.SaveChangesAsync();
+
+            // 3. Clear the form for the next entry
+            newCheckpoint = new Checkpoint();
+
+            // 4. THIS IS THE FIX:
+            // Instead of manually adding to the list, just
+            // reload everything fresh from the database.
+            await LoadRaceDetails();
+        }
+    }
+
+    private async Task DeleteCheckpointAsync(Checkpoint checkpointToDelete)
+    {
+        // 1. Tell the DbContext to remove this object
+        DbContext.Checkpoints.Remove(checkpointToDelete);
+
+        // 2. Save the change to the database
+        await DbContext.SaveChangesAsync();
+
+        // 3. Refresh the UI by reloading the race details
+        await LoadRaceDetails();
+    }
 }

@@ -2,9 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using RaceAcrossAmerica.Components;
 using RaceAcrossAmerica.Data;
 using Microsoft.FluentUI.AspNetCore.Components;
-{
-    
-}
+
 
 var builder = WebApplication.CreateBuilder(args);
 

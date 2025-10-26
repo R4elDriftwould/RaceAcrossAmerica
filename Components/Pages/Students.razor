@@ -14,25 +14,24 @@
 }
 else
 {
-    <table class="table">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Laps Run</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var student in students)
-            {
-                <tr>
-                    <td>@student.StudentId</td>
-                    <td>@student.Name</td>
-                    <td>@student.LapsRun</td>
-                </tr>
-            }
-        </tbody>
-    </table>
+
+    <FluentDataGrid TGridItem="Student" Items="@students.AsQueryable()" GridTemplateColumns="1fr 1fr 1fr 0.5fr">
+        <TemplateColumn Title="ID">
+            @context.StudentId
+        </TemplateColumn>
+        <TemplateColumn Title="Name">
+            @context.Name
+        </TemplateColumn>
+        <TemplateColumn Title="Laps Run">
+            @context.LapsRun
+        </TemplateColumn>
+
+        <TemplateColumn Title="">
+            <FluentButton Appearance="Appearance.Stealth" @onclick="() => DeleteStudentAsync(context)">
+                Delete
+            </FluentButton>
+        </TemplateColumn>
+    </FluentDataGrid>
 }
 
 
@@ -79,5 +78,17 @@ else
             newStudentName = string.Empty;
             await LoadStudents();
         }
+    }
+
+    private async Task DeleteStudentAsync(Student studentToDelete)
+    {
+        // 1. Tell DbContext to remove the student
+        DbContext.Students.Remove(studentToDelete);
+
+        // 2. Save the change
+        await DbContext.SaveChangesAsync();
+
+        // 3. Refresh the grid
+        await LoadStudents();
     }
 }

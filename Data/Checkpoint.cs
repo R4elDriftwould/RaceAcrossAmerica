@@ -23,5 +23,8 @@ namespace RaceAcrossAmerica.Data
         // The navigation property
         [ForeignKey("RaceId")]
         public virtual Race Race { get; set; }
+
+        public int X { get; set; } // X coordinate as a percentage (0-100)
+        public int Y { get; set; } // Y coordinate as a percentage (0-100)
     }
 }
