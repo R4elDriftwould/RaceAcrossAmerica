@@ -7,7 +7,8 @@
     <FluentCard>
         <h4>@activeRace.Name</h4>
 
-        <div style="margin-bottom: 1rem;">
+        <div style="margin-bottom: 1rem; display: flex; align-items: flex-end; gap: 1rem;">
+            <div>
             <FluentLabel>Select Student:</FluentLabel>
             <FluentSelect TOption="Student"
                           Items="@allStudents"
@@ -15,7 +16,13 @@
                           OptionText="@(p => p.Name)"
                           @bind-Value="@selectedStudentString"
                           @bind-Value:after="SelectedStudentChanged" />
+            </div>
+            <FluentButton Appearance="Appearance.Stealth" @onclick="ClearStudentSelection">
+                Show All
+            </FluentButton>
         </div>
+
+        
         
         <div style="position: relative;">
             <img src="/images/us_map.png" style="width: 100%;" />
@@ -33,30 +40,22 @@
                     }
                 }
 
-                @{
-                    var startCheckpoint = activeRace.Checkpoints.FirstOrDefault(c => c.CumulativeMiles == 0);
-                    if (startCheckpoint != null && allStudents != null)
+                @if (selectedStudent != null)
+                {
+                    var studentMiles = selectedStudent.LapsRun * 50;
+                    var path = GetStudentPath(studentMiles); // This method has all the logic
+
+                    if (path.Count > 1)
                     {
-                        @if (selectedStudent != null)
-                        {
-                            var studentMiles = selectedStudent.LapsRun * 50;
-                            var path = GetStudentPath(studentMiles);
-
-                            if (path.Count > 1)
-                            {
-                                // A <polyline> takes a "points" string like "x1,y1 x2,y2 x3,y3"
-                                var pointsString = string.Join(" ", path.Select(p => $"{p.X}%,{p.Y}%"));
-
-                                <polyline points="@pointsString" class="student-progress-line" />
-                            }
-                        }
+                        var pointsString = string.Join(" ", path.Select(p => $"{p.X}%,{p.Y}%"));
+                        <polyline points="@pointsString" class="student-progress-line" />
                     }
                 }
             </svg>
 
             @foreach (var cp in activeRace.Checkpoints)
             {
-                <div class_alias="checkpoint-pin" 
+                <div class="checkpoint-pin" 
                      style="left: @(cp.X)%; top: @(cp.Y)%; z-index: 10;"
                      @onclick="() => SelectCheckpoint(cp)"> <FluentTooltip AnchorId="@($"pin-{cp.CheckpointId}")" Delay="0">
                         @cp.City, @cp.State (@cp.CumulativeMiles mi)
@@ -384,6 +383,13 @@ else
             }
         }
     }
+
+    private void ClearStudentSelection()
+    {
+        selectedStudent = null;
+        selectedStudentString = null;
+    }
+
     private void SelectedStudentChanged()
     {
         if (int.TryParse(selectedStudentString, out int studentId))
@@ -395,7 +401,7 @@ else
             selectedStudent = null;
         }
         // Optional: Force a UI update if needed, though usually not required
-        // StateHasChanged();
+        StateHasChanged();
     }
 }
 
@@ -403,8 +409,8 @@ else
     .checkpoint-pin {
         position: absolute;
         /* This creates the circle */
-        width: 15px;
-        height: 15px;
+        width: 12px;
+        height: 12px;
         background-color: #d13438; /* A nice red */
         border: 2px solid #fff;
         border-radius: 50%;
