@@ -1,17 +1,20 @@
 ﻿@page "/"
 @inject ApplicationDbContext DbContext
 
+
 @if (activeRace != null)
 {
     <FluentCard>
         <h4>@activeRace.Name</h4>
 
         <div style="margin-bottom: 1rem;">
-        <FluentLabel>Select Student:</FluentLabel>
-        <FluentComboBox TValue="Student"
-                        Items="@allStudents"
-                        OptionText="@(s => s.Name)"
-                        @bind-Value="selectedStudent"/>
+            <FluentLabel>Select Student:</FluentLabel>
+            <FluentSelect TOption="Student"
+                          Items="@allStudents"
+                          OptionValue="@(p => p.StudentId.ToString())"
+                          OptionText="@(p => p.Name)"
+                          @bind-Value="@selectedStudentString"
+                          @bind-Value:after="SelectedStudentChanged" />
         </div>
         
         <div style="position: relative;">
@@ -158,6 +161,7 @@ else
     private Race activeRace; // <-- ADD THIS
     private Student selectedStudent;
 
+    private string selectedStudentString;
     private Checkpoint selectedCheckpoint; // <-- ADD THIS
     private List<Student> studentsAtCheckpoint = new List<Student>(); // <-- ADD THIS
 
@@ -165,7 +169,13 @@ else
     protected override async Task OnInitializedAsync()
     {
         await LoadStudents();
-        await LoadRace(); // <-- ADD THIS
+        await LoadRace();
+
+        if (allStudents != null && allStudents.Any())
+        {
+            selectedStudent = allStudents.First();
+            selectedStudentString = selectedStudent.StudentId.ToString(); // <-- ADD THIS LINE
+        }
     }
 
     private async Task LoadStudents()
@@ -373,6 +383,19 @@ else
                 studentsAtCheckpoint.Add(student);
             }
         }
+    }
+    private void SelectedStudentChanged()
+    {
+        if (int.TryParse(selectedStudentString, out int studentId))
+        {
+            selectedStudent = allStudents.FirstOrDefault(s => s.StudentId == studentId);
+        }
+        else
+        {
+            selectedStudent = null;
+        }
+        // Optional: Force a UI update if needed, though usually not required
+        // StateHasChanged();
     }
 }
 
