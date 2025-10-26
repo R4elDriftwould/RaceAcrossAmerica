@@ -43,12 +43,22 @@
                 @if (selectedStudent != null)
                 {
                     var studentMiles = selectedStudent.LapsRun * 50;
-                    var path = GetStudentPath(studentMiles); // This method has all the logic
+                    // GetStudentPath should return the points IN ORDER, including the start and the final interpolated position
+                    var studentPathPoints = GetStudentPath(studentMiles);
 
-                    if (path.Count > 1)
+                    // Draw line segments between consecutive points in the student's path
+                    for (int i = 0; i < studentPathPoints.Count - 1; i++)
                     {
-                        var pointsString = string.Join(" ", path.Select(p => $"{p.X}%,{p.Y}%"));
-                        <polyline points="@pointsString" class="student-progress-line" />
+                        var p1 = studentPathPoints[i];
+                        var p2 = studentPathPoints[i + 1];
+
+                        // Ensure coordinates are valid before drawing the line segment
+                        if (p1.X >= 0 && p1.Y >= 0 && p2.X >= 0 && p2.Y >= 0)
+                        {
+                            <line x1="@(p1.X)%" y1="@(p1.Y)%"
+                                  x2="@(p2.X)%" y2="@(p2.Y)%"
+                                  class="student-progress-line" />
+                        }
                     }
                 }
             </svg>
@@ -64,51 +74,74 @@
                 </div>
             }
 
-            @if (selectedStudent != null)
+            @if (allStudents != null) // Ensure students are loaded
             {
-                var studentMiles = selectedStudent.LapsRun * 50;
-                var currentLocation = GetCurrentLocation(studentMiles);
-                var (studentX, studentY) = GetStudentInterpolatedPosition(studentMiles);
-
-                @if (studentX >= 0)
+                if (selectedStudent != null)
                 {
-                    <div class="student-pin" style="left: @(studentX)%; top: @(studentY)%; z-index: 10;">
-                        <FluentTooltip AnchorId="@($"student-pin-{selectedStudent.StudentId}")" Delay="0">
-                            @selectedStudent.Name: @studentMiles miles (@currentLocation)
-                        </FluentTooltip>
-                        <div id="@($"student-pin-{selectedStudent.StudentId}")"></div>
-                    </div>
+                    // --- RENDER ONLY THE SELECTED STUDENT ---
+                    var studentMiles = selectedStudent.LapsRun * 50;
+                    var currentLocation = GetCurrentLocation(studentMiles);
+                    var (studentX, studentY) = GetStudentInterpolatedPosition(studentMiles);
+
+                    @if (studentX >= 0) // Check if position is valid
+                    {
+                        <div class="student-pin" style="left: @(studentX)%; top: @(studentY)%; z-index: 10;">
+                            <FluentTooltip AnchorId="@($"student-pin-{selectedStudent.StudentId}")" Delay="0">
+                                @selectedStudent.Name: @studentMiles miles (@currentLocation)
+                            </FluentTooltip>
+                            <div id="@($"student-pin-{selectedStudent.StudentId}")"></div>
+                        </div>
+                    }
                 }
+                else
+                {
+                    // --- RENDER ALL STUDENTS (NO STUDENT SELECTED) ---
+                    foreach (var student in allStudents)
+                    {
+                        var studentMiles = student.LapsRun * 50;
+                        var currentLocation = GetCurrentLocation(studentMiles);
+                        var (studentX, studentY) = GetStudentInterpolatedPosition(studentMiles);
+
+                        @if (studentX >= 0) // Check if position is valid
+                        {
+                            <div class="student-pin" style="left: @(studentX)%; top: @(studentY)%; z-index: 10;">
+                                <FluentTooltip AnchorId="@($"student-pin-{student.StudentId}")" Delay="0">
+                                    @student.Name: @studentMiles miles (@currentLocation)
+                                </FluentTooltip>
+                                <div id="@($"student-pin-{student.StudentId}")"></div>
+                            </div>
+                        }
+                    }
+                }
+            }
+            @if (selectedCheckpoint != null)
+            {
+                <div class="checkpoint-popup" style="left: @(selectedCheckpoint.X)%; top: @(selectedCheckpoint.Y)%; z-index: 20;">
+                    <div class="popup-header">
+                        <strong>@selectedCheckpoint.City</strong>
+                        <button class="close-btn" @onclick="() => selectedCheckpoint = null">×</button>
+                    </div>
+                    <div class="popup-body">
+                        @if (studentsAtCheckpoint.Any())
+                        {
+                            <ul>
+                                @foreach (var s in studentsAtCheckpoint)
+                                {
+                                    <li>@s.Name (@(s.LapsRun * 50) mi)</li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p>No students are here.</p>
+                        }
+                    </div>
+                </div>
             }
         </div>
     </FluentCard>
 }
 
-@if (selectedCheckpoint != null)
-{
-    <FluentCard style="margin-top: 1rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h4>Students at @selectedCheckpoint.City, @selectedCheckpoint.State</h4>
-            <FluentButton Appearance="Appearance.Stealth" @onclick="() => selectedCheckpoint = null">
-                Close
-            </FluentButton>
-        </div>
-
-        @if (studentsAtCheckpoint.Any())
-        {
-            <ul>
-                @foreach (var student in studentsAtCheckpoint)
-                {
-                    <li>@student.Name (@(student.LapsRun * 50) miles)</li>
-                }
-            </ul>
-        }
-        else
-        {
-            <p>No students are currently at this checkpoint.</p>
-        }
-    </FluentCard>
-}
 
 @if (allStudents == null)
 {
@@ -318,51 +351,81 @@ else
         return (newX, newY);
     }
 
-    // --- ADD THIS ENTIRE METHOD ---
     private List<(double X, double Y)> GetStudentPath(int studentMiles)
     {
         var pathPoints = new List<(double X, double Y)>();
+        // Ensure race and checkpoints are loaded
         if (activeRace == null || !activeRace.Checkpoints.Any())
         {
-            return pathPoints;
+            return pathPoints; // Return empty list if no race/checkpoints
         }
 
-        // 1. Get all checkpoints the student has fully passed, in order
-        var passedCheckpoints = activeRace.Checkpoints
+        // Get all checkpoints the student has reached or passed, ordered by miles
+        var reachedOrPassedCheckpoints = activeRace.Checkpoints
             .Where(c => c.CumulativeMiles <= studentMiles)
             .OrderBy(c => c.CumulativeMiles)
             .ToList();
 
-        if (!passedCheckpoints.Any())
+        // Get the effective starting point (checkpoint with 0 miles)
+        var startCp = activeRace.Checkpoints.FirstOrDefault(c => c.CumulativeMiles == 0);
+
+        if (!reachedOrPassedCheckpoints.Any())
         {
-            // Student hasn't started, or there's no start checkpoint
-            // Try to find the start checkpoint
-            var startCp = activeRace.Checkpoints.FirstOrDefault(c => c.CumulativeMiles == 0);
-            if (startCp != null)
+            // Student hasn't reached the first checkpoint after startCp
+            if (startCp != null && studentMiles > 0)
             {
-                pathPoints.Add((startCp.X, startCp.Y));
+                // If they've started (miles > 0) but haven't reached CP1, draw line from startCp to current pos
+                pathPoints.Add((startCp.X, startCp.Y)); // Add start point
+                var (currentX, currentY) = GetStudentInterpolatedPosition(studentMiles); // Get current position
+                // Add current position only if it's valid (on the map)
+                if (currentX >= 0 && currentY >= 0)
+                {
+                    pathPoints.Add((currentX, currentY)); // Add interpolated point
+                }
             }
-            return pathPoints;
+            else if (startCp != null)
+            {
+                // Exactly at the start (miles = 0), add just the start point.
+                pathPoints.Add((startCp.X, startCp.Y)); // Add start point
+                                                        // A line won't draw yet as there's only one point.
+            }
+            // else: No start checkpoint defined, or miles = 0 with no startCp. Path remains empty.
         }
-
-        // 2. Add all passed checkpoints to the path
-        foreach (var cp in passedCheckpoints)
+        else
         {
-            pathPoints.Add((cp.X, cp.Y));
+            // Student has reached or passed at least one checkpoint (could be just the startCp if miles=0)
+            // Add all reached/passed checkpoints to the path
+            foreach (var cp in reachedOrPassedCheckpoints)
+            {
+                pathPoints.Add((cp.X, cp.Y));
+            }
+
+            // Calculate the current interpolated position
+            var (currentX, currentY) = GetStudentInterpolatedPosition(studentMiles);
+            var lastAddedCp = reachedOrPassedCheckpoints.Last(); // Get the last checkpoint they fully passed
+
+            // Check if the race has a defined final checkpoint
+            var finalCheckpoint = activeRace.Checkpoints.OrderByDescending(c => c.CumulativeMiles).FirstOrDefault();
+            bool isAtVeryEndOfRace = finalCheckpoint != null &&
+                                     lastAddedCp.CheckpointId == finalCheckpoint.CheckpointId &&
+                                     studentMiles >= finalCheckpoint.CumulativeMiles; // They are at or beyond the last CP
+
+            // Add the current interpolated position if it's valid and they are NOT exactly AT the final checkpoint
+            // (because the final checkpoint itself was already added in the loop above).
+            if (!isAtVeryEndOfRace && currentX >= 0 && currentY >= 0)
+            {
+                // Only add the interpolated point if it's distinct from the last checkpoint added,
+                // avoids adding duplicate point if student is exactly at an intermediate checkpoint.
+                // Using a small tolerance for floating-point comparison.
+                if (Math.Abs(currentX - lastAddedCp.X) > 0.01 || Math.Abs(currentY - lastAddedCp.Y) > 0.01)
+                {
+                    pathPoints.Add((currentX, currentY)); // Add interpolated point
+                }
+            }
+            // If they are exactly at the end, the path already includes the final checkpoint from the loop.
         }
 
-        // 3. Get the student's current interpolated position
-        var (currentX, currentY) = GetStudentInterpolatedPosition(studentMiles);
-
-        // 4. Check if the current position is different from the last checkpoint
-        //    (i.e., they are *between* checkpoints)
-        var lastCp = passedCheckpoints.Last();
-        if (currentX != lastCp.X || currentY != lastCp.Y)
-        {
-            pathPoints.Add((currentX, currentY));
-        }
-
-        return pathPoints;
+        return pathPoints; // Return the list of points
     }
 
     private void SelectCheckpoint(Checkpoint checkpoint)
@@ -382,12 +445,16 @@ else
                 studentsAtCheckpoint.Add(student);
             }
         }
+
+        StateHasChanged();
+
     }
 
     private void ClearStudentSelection()
     {
         selectedStudent = null;
         selectedStudentString = null;
+        StateHasChanged();
     }
 
     private void SelectedStudentChanged()
@@ -453,5 +520,52 @@ else
     stroke-linecap: round;
     opacity: 0.8;
     fill: none; /* -- ADD THIS to prevent weird fill-in colors */
+    }
+
+    /* === ADD ALL STYLES BELOW === */
+    .checkpoint-popup {
+        position: absolute;
+        width: 200px;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        /* This transform moves the popup to be *above* and *to the side* of the pin */
+        transform: translate(-50%, -100%);
+        margin-top: -15px; /* Adds a small gap above the pin */
+        padding: 8px;
+        font-size: 0.9rem;
+    }
+
+    .popup-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 5px;
+        margin-bottom: 5px;
+    }
+
+    .close-btn {
+        border: none;
+        background: none;
+        font-size: 1.5rem;
+        line-height: 1;
+        cursor: pointer;
+        padding: 0 5px;
+    }
+
+    .popup-body ul {
+        list-style-type: none;
+        padding-left: 0;
+        margin: 0;
+    }
+
+    .popup-body li {
+        padding: 2px 0;
+    }
+
+    .popup-body p {
+        margin: 0;
+        padding: 5px 0;
     }
 </style>
