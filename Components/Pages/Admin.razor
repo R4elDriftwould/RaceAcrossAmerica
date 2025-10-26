@@ -12,19 +12,21 @@
         <FluentNumberField @bind-Value="newRace.Year" Label="Year" Placeholder="e.g., 2026" />
         <FluentNumberField @bind-Value="newRace.Semester" Label="Semester" Placeholder="e.g., 1 for Fall, 2 for Spring" />
         
-        <FluentSelect TOption="Race"
-                      Items="@races"
-                      OptionValue="@(r => r.RaceId.ToString())"
-                      OptionText="@(r => $"{r.Name} ({r.Year})")"
-                      @bind-Value="raceToCopyIdString"
-                      Label="Copy Checkpoints from (Optional)"
-                      PopupAnchorId="main-content-area">
-            
-            <FluentOption Value="@string.Empty">-- None --</FluentOption> 
-            
-            <InitialValue>Select a race to copy...</InitialValue>
-            
-        </FluentSelect>
+        <div>
+            <label for="copyRaceSelect" class="form-label">Copy Checkpoints from (Optional)</label>
+            <select id="copyRaceSelect" class="form-select" @onchange="HandleRaceSelectionChange">
+                <option value="">-- Select a race to copy --</option> @if (races != null)
+                {
+                    @foreach (var race in races)
+                    {
+                        // Use selectedRaceIdString to control which option is selected
+                        <option value="@race.RaceId" selected="@(race.RaceId.ToString() == selectedRaceIdString)">
+                            @($"{race.Name} ({race.Year})")
+                        </option>
+                    }
+                }
+            </select>
+        </div>
     </div>
 
     <FluentButton Appearance="Appearance.Accent" @onclick="AddRaceAsync" style="margin-top: 1rem;">
@@ -68,10 +70,13 @@
 
 
 @code {
-    private List<Race> races;
+    private List<Race>? races; // Keep nullable for initial check
     private Race newRace = new Race();
-    // Initialize to null so the "Select..." option appears initially
-    private string raceToCopyIdString = string.Empty;
+    // Revert to nullable int for the ID
+    private int? raceToCopyId = null;
+
+    // Variable to hold the string value from the standard HTML select
+    private string selectedRaceIdString = string.Empty; // Use string.Empty for default "Select..." option
 
     protected override async Task OnInitializedAsync()
     {
@@ -80,53 +85,56 @@
 
     private async Task LoadRaces()
     {
-        // Load races, ordered for the dropdown
-        races = await DbContext.Races.OrderByDescending(r => r.Year).ThenBy(r => r.Name).ToListAsync();
-        Console.WriteLine($"Loaded {races?.Count ?? 0} races for dropdown."); // Debug output
+        // Just load the races directly, no placeholder needed now
+        races = await DbContext.Races
+            .OrderByDescending(r => r.Year)
+            .ThenBy(r => r.Name)
+            .ToListAsync();
+        Console.WriteLine($"Loaded {races?.Count ?? 0} races for dropdown.");
+    }
+
+    // Method to handle changes from the standard HTML select
+    private void HandleRaceSelectionChange(ChangeEventArgs e)
+    {
+        selectedRaceIdString = e.Value?.ToString() ?? string.Empty;
+        if (int.TryParse(selectedRaceIdString, out int id) && id > 0)
+        {
+            raceToCopyId = id;
+        }
+        else
+        {
+            raceToCopyId = null; // Set back to null if "Select..." is chosen
+        }
+        Console.WriteLine($"Selection changed. raceToCopyId is now: {raceToCopyId}");
     }
 
     private async Task AddRaceAsync()
     {
-        // --- TEMPORARY DEBUGGING ---
         Console.WriteLine($"--- Starting AddRaceAsync ---");
         Console.WriteLine($"New Race Name: {newRace?.Name}, Year: {newRace?.Year}, Semester: {newRace?.Semester}");
-        Console.WriteLine($"Race ID String to Copy From: '{raceToCopyIdString}'");
-        // --- END DEBUGGING ---
+        Console.WriteLine($"Race ID To Copy From (int?): {raceToCopyId}"); // Log the int? value
 
         if (newRace != null && !string.IsNullOrWhiteSpace(newRace.Name) && newRace.Year > 2000)
         {
-            int? raceToCopyId = null;
-            if (int.TryParse(raceToCopyIdString, out int id) && id > 0)
-            {
-                raceToCopyId = id;
-                Console.WriteLine($"Parsed Race ID to Copy From: {raceToCopyId.Value}"); // Debug output
-            }
-            else
-            {
-                Console.WriteLine("No valid Race ID selected to copy from."); // Debug output
-            }
-
+            // Directly use raceToCopyId.HasValue
             if (raceToCopyId.HasValue)
             {
-                Console.WriteLine($"Fetching checkpoints for Race ID: {raceToCopyId.Value}"); // Debug output
+                Console.WriteLine($"Fetching checkpoints for Race ID: {raceToCopyId.Value}");
                 var checkpointsToCopy = await DbContext.Checkpoints
                     .Where(c => c.RaceId == raceToCopyId.Value)
                     .AsNoTracking()
                     .ToListAsync();
-
-                Console.WriteLine($"Found {checkpointsToCopy.Count} checkpoints to copy."); // Debug output
+                Console.WriteLine($"Found {checkpointsToCopy.Count} checkpoints to copy.");
 
                 if (checkpointsToCopy.Any())
                 {
+                    if (newRace.Checkpoints == null)
+                    {
+                        newRace.Checkpoints = new List<Checkpoint>();
+                    }
+
                     foreach (var cp in checkpointsToCopy)
                     {
-                        // Ensure the Checkpoints collection is initialized
-                        // (The constructor in Race.cs should already do this, but just in case)
-                        if (newRace.Checkpoints == null)
-                        {
-                            newRace.Checkpoints = new List<Checkpoint>();
-                        }
-
                         newRace.Checkpoints.Add(new Checkpoint
                         {
                             City = cp.City,
@@ -135,57 +143,62 @@
                             X = cp.X,
                             Y = cp.Y
                         });
+                        Console.WriteLine($" -> Added copy of checkpoint: {cp.City}");
                     }
-                    Console.WriteLine($"Total checkpoints added to newRace object: {newRace.Checkpoints.Count}"); // Debug output
+                    Console.WriteLine($"Total checkpoints added to newRace object before save: {newRace.Checkpoints.Count}");
                 }
             }
             else
             {
-                Console.WriteLine("Not copying any checkpoints."); // Debug output
+                Console.WriteLine("Not copying any checkpoints.");
             }
 
             try
             {
-                Console.WriteLine("Adding new race to DbContext..."); // Debug output
+                Console.WriteLine($"Adding new race '{newRace.Name}' to DbContext...");
                 DbContext.Races.Add(newRace);
 
-                Console.WriteLine("Calling SaveChangesAsync..."); // Debug output
+                Console.WriteLine("Calling SaveChangesAsync...");
                 await DbContext.SaveChangesAsync();
-                Console.WriteLine($"SaveChanges successful. New Race ID: {newRace.RaceId}"); // Debug output
+                Console.WriteLine($"SaveChanges successful. New Race ID: {newRace.RaceId}, Checkpoints attached: {newRace.Checkpoints?.Count ?? 0}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"!!! Error saving changes: {ex.Message}"); // Debug output for errors
-                                                                              // Optionally log the full exception: Console.WriteLine(ex.ToString());
-                                                                              // Optionally, add user feedback here that saving failed
-                return; // Stop processing if save failed
+                Console.WriteLine($"!!! Error saving changes: {ex.Message}");
+                return;
             }
 
-            newRace = new Race(); // Reset for next time
-            raceToCopyIdString = string.Empty; // Reset dropdown
-            Console.WriteLine("Form cleared."); // Debug output
-            await LoadRaces(); // Refresh list on page
+            newRace = new Race();
+            // Reset the bound string and the int? value
+            selectedRaceIdString = string.Empty;
+            raceToCopyId = null;
+            Console.WriteLine("Form cleared, resetting dropdown.");
+            await LoadRaces();
+            StateHasChanged();
         }
         else
         {
-            Console.WriteLine("Validation failed (Name or Year invalid). Race not added."); // Debug output
+            Console.WriteLine("Validation failed (Name or Year invalid). Race not added.");
         }
-        Console.WriteLine($"--- Finished AddRaceAsync ---"); // Debug output
+        Console.WriteLine($"--- Finished AddRaceAsync ---");
     }
 
+    // --- DeleteRaceAsync (no changes needed) ---
     private async Task DeleteRaceAsync(Race raceToDelete)
     {
         var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete the race '{raceToDelete.Name}'? This will also delete all its checkpoints.");
         if (confirmed)
         {
-            var race = await DbContext.Races.FindAsync(raceToDelete.RaceId);
+            var race = await DbContext.Races.Include(r => r.Checkpoints).FirstOrDefaultAsync(r => r.RaceId == raceToDelete.RaceId);
             if (race != null)
             {
                 DbContext.Races.Remove(race);
                 await DbContext.SaveChangesAsync();
-                Console.WriteLine($"Deleted Race ID: {raceToDelete.RaceId}"); // Debug output
+                Console.WriteLine($"Deleted Race ID: {raceToDelete.RaceId}");
             }
             await LoadRaces();
+            StateHasChanged();
         }
     }
 }
+
