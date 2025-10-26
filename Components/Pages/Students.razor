@@ -52,6 +52,7 @@ else
     // This method gets all students from the database
     private async Task LoadStudents()
     {
+        //SELECT * FROM Students
         students = await DbContext.Students.ToListAsync();
     }
 
@@ -63,6 +64,7 @@ else
             // Create a new Student object
             var studentToAdd = new Student
             {
+                // Binded newStudentName in <input> @bind="newStudentName"
                 Name = newStudentName,
                 LapsRun = 0 // Default to 0 laps
             };

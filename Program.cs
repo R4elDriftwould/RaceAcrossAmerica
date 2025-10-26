@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using RaceAcrossAmerica.Components;
 using RaceAcrossAmerica.Data;
+using Microsoft.FluentUI.AspNetCore.Components;
 {
     
 }
@@ -14,6 +15,8 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddFluentUIComponents();
 
 var app = builder.Build();
 
