@@ -74,6 +74,27 @@
                 </div>
             }
 
+            @* --- ADD THIS NEW BLOCK for the Student Hover Popup --- *@
+            @if (hoveredStudent != null && selectedStudent == null) // Show only on hover AND in "Show All" mode
+            {
+                var hoverMiles = hoveredStudent.LapsRun * 50;
+                var (hoverX, hoverY) = GetStudentInterpolatedPosition(hoverMiles);
+
+                // Basic popup similar to checkpoint popup
+                <div class="student-hover-popup" style="left: @(hoverX)%; top: @(hoverY)%; z-index: 25;">
+                    @* Higher z-index *@
+                    <div class="popup-header">
+                        <strong>@hoveredStudent.Name</strong>
+                        @* No close button needed, disappears on mouseleave *@
+                    </div>
+                    <div class="popup-body">
+                        <p>@hoverMiles miles</p>
+                        <small>(Click pin to select)</small>
+                    </div>
+                </div>
+            }
+            @* --- END of Student Hover Popup Block --- *@
+
             @if (allStudents != null) // Ensure students are loaded
             {
                 if (selectedStudent != null)
@@ -104,7 +125,13 @@
 
                         @if (studentX >= 0) // Check if position is valid
                         {
-                            <div class="student-pin" style="left: @(studentX)%; top: @(studentY)%; z-index: 10;">
+                            // --- ADD @onmouseenter, @onmouseleave, @onclick ---
+                            <div class="student-pin"
+                                 style="left: @(studentX)%; top: @(studentY)%; z-index: 10;"
+                                 @onmouseenter="() => StudentPinMouseEnter(student)"
+                                 @onmouseleave="StudentPinMouseLeave"
+                                 @onclick="() => SelectStudentFromPin(student)">
+                                 @* Use the existing FluentTooltip for accessibility/fallback *@
                                 <FluentTooltip AnchorId="@($"student-pin-{student.StudentId}")" Delay="0">
                                     @student.Name: @studentMiles miles (@currentLocation)
                                 </FluentTooltip>
@@ -470,6 +497,39 @@ else
         // Optional: Force a UI update if needed, though usually not required
         StateHasChanged();
     }
+
+
+
+    // Student Pin Hover and Click Functionality
+    private Student hoveredStudent; // To track which student pin is hovered
+
+    // --- NEW METHOD to handle clicking a student pin ---
+    private void SelectStudentFromPin(Student studentToSelect)
+    {
+        if (studentToSelect != null && allStudents.Contains(studentToSelect))
+        {
+            selectedStudent = studentToSelect;
+            selectedStudentString = studentToSelect.StudentId.ToString();
+            hoveredStudent = null; // Hide hover popup once selected
+            StateHasChanged(); // Update the UI
+        }
+    }
+
+    // --- NEW METHODs to handle hover ---
+    private void StudentPinMouseEnter(Student student)
+    {
+        if (selectedStudent == null) // Only show hover popup in "Show All" mode
+        {
+            hoveredStudent = student;
+            // StateHasChanged(); // Optional: Usually not needed for hover, but add if popup doesn't appear
+        }
+    }
+
+    private void StudentPinMouseLeave()
+    {
+        hoveredStudent = null;
+        // StateHasChanged(); // Optional: Usually not needed for hover, but add if popup doesn't disappear
+    }
 }
 
 <style>
@@ -568,4 +628,41 @@ else
         margin: 0;
         padding: 5px 0;
     }
+
+    /* --- Styles for the new Student Hover Popup --- */
+    .student-hover-popup {
+        position: absolute;
+        width: 150px; /* Smaller than checkpoint popup */
+        background-color: #f0f8ff; /* Light blue background */
+        border: 1px solid #0078d4; /* Blue border */
+        color: #333; /* Darker text */
+        border-radius: 6px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        /* Position above and slightly to the side */
+        transform: translate(-50%, -100%);
+        margin-top: -15px; /* Gap above pin */
+        padding: 6px;
+        font-size: 0.85rem;
+        pointer-events: none; /* Prevent popup from interfering with clicking the pin underneath */
+    }
+
+        .student-hover-popup .popup-header {
+            border-bottom: 1px solid #cce0ff; /* Lighter blue border */
+            padding-bottom: 4px;
+            margin-bottom: 4px;
+            justify-content: center; /* Center name */
+        }
+
+        .student-hover-popup .popup-body p,
+        .student-hover-popup .popup-body small {
+            margin: 0;
+            padding: 1px 0;
+            text-align: center;
+        }
+
+        .student-hover-popup .popup-body small {
+            font-size: 0.75rem;
+            color: #555;
+        }
+    /* --- End of Student Hover Popup Styles --- */
 </style>
