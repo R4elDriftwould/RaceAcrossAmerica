@@ -49,3 +49,36 @@ h1:focus {
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
+
+/* Add vertical padding to grid cells to prevent cutoff */
+fluent-data-grid-cell {
+    padding-top: 6px; /* Increased padding slightly */
+    padding-bottom: 6px;
+    /* Removed display:flex and align-items:center from the cell itself */
+    vertical-align: middle; /* Try standard vertical alignment for table cells */
+}
+
+    /* Target divs directly inside cells (often used by templates) */
+    /* and center their direct children (like buttons or text) */
+    fluent-data-grid-cell > div {
+        display: flex;
+        align-items: center;
+        /* If the div itself needs centering within the cell, add: */
+        /* width: 100%; */
+        /* justify-content: center; /* or flex-start / flex-end */
+    }
+
+    /* Ensure buttons themselves align well within a flex container */
+    fluent-data-grid-cell fluent-button {
+        margin-top: auto; /* Helps align within flex */
+        margin-bottom: auto; /* Helps align within flex */
+        /* line-height: normal; /* Reset line-height if needed */
+    }
+
+    /* Ensure anchors (like the Manage link) also align */
+    fluent-data-grid-cell fluent-anchor {
+        margin-top: auto;
+        margin-bottom: auto;
+        display: inline-flex; /* Treat anchor like a flex item */
+        align-items: center;
+    }

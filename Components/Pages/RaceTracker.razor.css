@@ -1,0 +1,21 @@
+﻿/* Target grid cells specifically within the .student-progress-grid */
+.student-progress-grid ::deep fluent-data-grid-cell {
+    min-height: 44px; /* Adjust this value as needed - try starting around 40-48px */
+    vertical-align: middle; /* Keep vertical align as a fallback */
+    display: flex; /* Make cell a flex container */
+    align-items: center;
+}
+
+    /* Target the div containing the buttons specifically within this grid */
+    .student-progress-grid ::deep fluent-data-grid-cell > div {
+        display: flex;
+        align-items: center; /* This should still work */
+        height: 100%; /* Ensure div fills cell height */
+        gap: 5px; /* Replicate the gap from inline style if needed */
+    }
+
+/* Optional: Ensure buttons align nicely */
+/*.student-progress-grid ::deep fluent-button {
+    margin-top: auto;
+    margin-bottom: auto;
+}*/

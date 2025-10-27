@@ -137,7 +137,12 @@ else if (activeRace != null && raceParticipantsStudents != null)
         }
         else
         {
-            <FluentDataGrid TGridItem="Student" Items="@FilteredStudentsForTable.AsQueryable()" GridTemplateColumns="2fr 1fr 1fr 1fr 2fr 150px">
+            // ---- MODIFIED LINE ----
+            <FluentDataGrid TGridItem="Student" Items="@FilteredStudentsForTable.AsQueryable()"
+                            GridTemplateColumns="2fr 1fr 1fr 1fr 2fr 150px"
+                            Class="student-progress-grid">
+                @* Added Class here *@
+
                 @* Added group column width *@
                 <TemplateColumn Title="Student Name"> @context.Name </TemplateColumn>
                 <TemplateColumn Title="Group"> @(context.Group?.Name ?? "N/A") </TemplateColumn> @* Show Group in table *@
@@ -145,7 +150,9 @@ else if (activeRace != null && raceParticipantsStudents != null)
                 <TemplateColumn Title="Total Miles"> @(context.LapsRun * 50) miles </TemplateColumn>
                 <TemplateColumn Title="Current Location"> @GetCurrentLocation(context.LapsRun * 50) </TemplateColumn>
                 <TemplateColumn Title="Update Laps">
-                    <div style="display: flex; gap: 5px;">
+                    @* --- MODIFIED LINE --- *@
+                    <div style="display: flex; align-items: center; gap: 5px; height: 100%; padding: 0;">
+                        @* Added height: 100%; and padding: 0; *@
                         <FluentButton Appearance="Appearance.Accent" @onclick="() => AddLap(context)"> +1 Lap </FluentButton>
                         <FluentButton Appearance="Appearance.Stealth" @onclick="() => SubtractLap(context)" Disabled="context.LapsRun <= 0"> -1 Lap </FluentButton>
                     </div>
