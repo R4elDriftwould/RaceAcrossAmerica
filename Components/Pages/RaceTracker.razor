@@ -106,23 +106,52 @@ else { <p><em>No races found. Please create one in the Admin panel.</em></p> }
 @if (raceParticipantsStudents == null && activeRace != null) { <p><em>Loading student progress...</em></p> }
 else if (activeRace != null && raceParticipantsStudents != null)
 {
+    @* --- MODIFIED LINE --- *@
     <FluentCard>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h3>Student Progress</h3>
-             @if (availableGroupsInRace != null && availableGroupsInRace.Count > 1) { <div style="display: flex; align-items: center; gap: 0.5rem;"><FluentLabel>Filter by Group:</FluentLabel><FluentSelect TOption="GroupFilterItem" Items="@availableGroupsInRace" OptionValue="@(g => g.GroupId.ToString())" OptionText="@(g => g.Name)" @bind-Value="selectedGroupIdFilterString" @bind-Value:after="HandleGroupFilterChange" Style="min-width: 150px;" /></div> }
+            @* --- Group Filter Dropdown --- *@
+            @if (availableGroupsInRace != null && availableGroupsInRace.Count > 1) @* Only show filter if there are groups + "All" *@
+            {
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <FluentLabel>Filter by Group:</FluentLabel>
+                    @* --- Replacing FluentSelect with standard HTML select --- *@
+                    <select class="fluent-select" @bind="selectedGroupIdFilterString" @bind:after="HandleGroupFilterChange" style="min-width: 150px;">
+                        @if (availableGroupsInRace != null)
+                        {
+                            @foreach (var groupItem in availableGroupsInRace)
+                            {
+                                <option value="@groupItem.GroupId.ToString()">@groupItem.Name</option>
+                            }
+                        }
+                    </select>
+                    @* --- End Replacement --- *@
+                </div>
+            }
+            @* --- END Filter --- *@
         </div>
 
-        @if (!FilteredStudentsForTable.Any()) { <p><em>No students match the current filter or are assigned to this race.</em></p> }
-        else {
-             <FluentDataGrid TGridItem="Student" Items="@FilteredStudentsForTable.AsQueryable()" GridTemplateColumns="2fr 1fr 1fr 1fr 2fr 150px">
-                 <TemplateColumn Title="Student Name"> @context.Name </TemplateColumn>
-                 <TemplateColumn Title="Group"> @(context.Group?.Name ?? "N/A") </TemplateColumn>
-                 <TemplateColumn Title="Laps Run"> @context.LapsRun </TemplateColumn>
-                 <TemplateColumn Title="Total Miles"> @(context.LapsRun * 50) miles </TemplateColumn>
-                 <TemplateColumn Title="Current Location"> @GetCurrentLocation(context.LapsRun * 50) </TemplateColumn>
-                 <TemplateColumn Title="Update Laps"> <div style="display: flex; gap: 5px;"><FluentButton Appearance="Appearance.Accent" @onclick="() => AddLap(context)"> +1 Lap </FluentButton><FluentButton Appearance="Appearance.Stealth" @onclick="() => SubtractLap(context)" Disabled="context.LapsRun <= 0"> -1 Lap </FluentButton></div> </TemplateColumn>
-             </FluentDataGrid>
-         }
+        @if (!FilteredStudentsForTable.Any())
+        {
+            <p><em>No students match the current filter or are assigned to this race.</em></p>
+        }
+        else
+        {
+            <FluentDataGrid TGridItem="Student" Items="@FilteredStudentsForTable.AsQueryable()" GridTemplateColumns="2fr 1fr 1fr 1fr 2fr 150px">
+                @* Added group column width *@
+                <TemplateColumn Title="Student Name"> @context.Name </TemplateColumn>
+                <TemplateColumn Title="Group"> @(context.Group?.Name ?? "N/A") </TemplateColumn> @* Show Group in table *@
+                <TemplateColumn Title="Laps Run"> @context.LapsRun </TemplateColumn>
+                <TemplateColumn Title="Total Miles"> @(context.LapsRun * 50) miles </TemplateColumn>
+                <TemplateColumn Title="Current Location"> @GetCurrentLocation(context.LapsRun * 50) </TemplateColumn>
+                <TemplateColumn Title="Update Laps">
+                    <div style="display: flex; gap: 5px;">
+                        <FluentButton Appearance="Appearance.Accent" @onclick="() => AddLap(context)"> +1 Lap </FluentButton>
+                        <FluentButton Appearance="Appearance.Stealth" @onclick="() => SubtractLap(context)" Disabled="context.LapsRun <= 0"> -1 Lap </FluentButton>
+                    </div>
+                </TemplateColumn>
+            </FluentDataGrid>
+        }
     </FluentCard>
 }
 
