@@ -1,30 +1,10 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">RaceAcrossAmerica</a>
-    </div>
+﻿@using Microsoft.FluentUI.AspNetCore.Components.Icons
+
+<div class="navmenu">
+    <FluentNavMenu Width="250" Title="Race Across America" Collapsible="true" Collapsed="false">
+        @* Added Collapsed="true" *@
+        <FluentNavLink Href="/" Match="NavLinkMatch.All" Icon="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.Home())">Home</FluentNavLink>
+        <FluentNavLink Href="/students" Icon="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.People())">Students</FluentNavLink>
+        <FluentNavLink Href="/admin" Icon="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.Settings())">Admin</FluentNavLink>
+    </FluentNavMenu>
 </div>
-
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
-
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="students">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Students
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="admin">
-                <span class="bi bi-gear-fill-nav-menu" aria-hidden="true"></span> Admin
-            </NavLink>
-        </div>
-    </nav>
-</div>
-
