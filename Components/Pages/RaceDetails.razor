@@ -56,7 +56,10 @@ else
                      <TemplateColumn Title="Miles">@context.CumulativeMiles</TemplateColumn>
                      <TemplateColumn Title="X, Y">@context.X, @context.Y</TemplateColumn>
                      <TemplateColumn Title="">
-                         <FluentButton Appearance="Appearance.Stealth" @onclick="() => DeleteCheckpointAsync(context)">Delete</FluentButton>
+                         @* --- MODIFIED --- *@
+                        <div style="display: flex; align-items: center; height: 100%; padding: 0;">
+                            <FluentButton Appearance="Appearance.Stealth" @onclick="() => DeleteCheckpointAsync(context)">Delete</FluentButton>
+                        </div>
                      </TemplateColumn>
                 </FluentDataGrid>
             </FluentCard>
@@ -103,8 +106,10 @@ else
                           <TemplateColumn Title="Student Name">@context.Student?.Name</TemplateColumn>
                           <TemplateColumn Title="Group">@(context.Student?.Group?.Name ?? "N/A")</TemplateColumn>
                           <TemplateColumn Title="">
-                              <FluentButton Appearance="Appearance.Stealth" @onclick="() => RemoveStudentFromRaceAsync(context)">Remove</FluentButton>
-                          </TemplateColumn>
+                              <div style="display: flex; align-items: center; height: 100%; padding: 0;">
+                                <FluentButton Appearance="Appearance.Stealth" @onclick="() => RemoveStudentFromRaceAsync(context)">Remove</FluentButton>
+                              </div>
+                            </TemplateColumn>
                      </FluentDataGrid>
                  }
             </FluentCard>

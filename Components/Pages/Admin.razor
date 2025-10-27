@@ -55,14 +55,20 @@
                 @context.Semester
             </TemplateColumn>
             <TemplateColumn Title="">
-                <FluentAnchor Href="@($"admin/race/{context.RaceId}")" Appearance="Appearance.Hypertext">
-                    Manage
-                </FluentAnchor>
+                @* --- MODIFIED --- *@
+                <div style="display: flex; align-items: center; height: 100%; padding: 0;">
+                    <FluentAnchor Href="@($"admin/race/{context.RaceId}")" Appearance="Appearance.Hypertext">
+                        Manage
+                    </FluentAnchor>
+                </div>
             </TemplateColumn>
             <TemplateColumn Title="">
-                <FluentButton Appearance="Appearance.Stealth" @onclick="() => DeleteRaceAsync(context)">
-                    Delete
-                </FluentButton>
+                @* --- MODIFIED --- *@
+                <div style="display: flex; align-items: center; height: 100%; padding: 0;">
+                    <FluentButton Appearance="Appearance.Stealth" @onclick="() => DeleteRaceAsync(context)">
+                        Delete
+                    </FluentButton>
+                </div>
             </TemplateColumn>
         </FluentDataGrid>
     }
