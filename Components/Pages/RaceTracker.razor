@@ -5,39 +5,32 @@
 
 @if (activeRace != null)
 {
+    // --- Top Card (Map and Race/Student Selection) ---
     <FluentCard>
-        <div style="margin-bottom: 1rem; display: flex; align-items: flex-end; gap: 1rem;">
-            
+        <div style="margin-bottom: 1rem; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1rem;">
             @if (allRaces != null)
             {
                 <div>
                     <FluentLabel>Select Race:</FluentLabel>
-                    <FluentSelect TOption="Race"
-                                  Items="@allRaces"
-                                  OptionValue="@(r => r.RaceId.ToString())"
-                                  OptionText="@(r => $"{r.Name} ({r.Year})")"
-                                  @bind-Value="selectedRaceId"
-                                  @bind-Value:after="HandleRaceChangeAsync"
-                                  Style="width: 250px;" />
+                    <FluentSelect TOption="Race" Items="@allRaces" OptionValue="@(r => r.RaceId.ToString())" OptionText="@(r => $"{r.Name} ({r.Year})")"
+                                  @bind-Value="selectedRaceId" @bind-Value:after="HandleRaceChangeAsync" Style="min-width: 200px;" />
                 </div>
             }
-
-            @if (raceParticipantsStudents != null)
+            @if (raceParticipantsStudents != null && raceParticipantsStudents.Any())
             {
                 <div>
                     <FluentLabel>Select Student:</FluentLabel>
-                    <FluentSelect TOption="Student"
-                                  Items="@raceParticipantsStudents"
-                                  OptionValue="@(p => p.StudentId.ToString())"
-                                  OptionText="@(p => p.Name)"
-                                  @bind-Value="@selectedStudentString"
-                                  @bind-Value:after="SelectedStudentChanged" />
+                    <FluentSelect TOption="Student" Items="@raceParticipantsStudents" OptionValue="@(p => p.StudentId.ToString())" OptionText="@(p => p.Name)"
+                                  @bind-Value="@selectedStudentString" @bind-Value:after="SelectedStudentChanged" Style="min-width: 180px;">
+                        <InitialValue>Select a student...</InitialValue>
+                    </FluentSelect>
                 </div>
+                <FluentButton Appearance="Appearance.Stealth" @onclick="ClearStudentSelection" style="margin-left: auto;"> Show All Students on Map </FluentButton>
             }
-            
-            <FluentButton Appearance="Appearance.Stealth" @onclick="ClearStudentSelection">
-                Show All
-            </FluentButton>
+            else if (raceParticipantsStudents != null)
+            {
+                <div style="color: #6c757d;">No students assigned to this race.</div>
+            }
         </div>
 
         <h4>@activeRace.Name</h4>
@@ -46,582 +39,397 @@
             <img src="/images/us_map.png" style="width: 100%;" />
 
             <svg style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5;">
-                @{
+                @{ /* Race Route Line */
                     var orderedCheckpoints = activeRace.Checkpoints.OrderBy(c => c.CumulativeMiles).ToList();
-                    for (int i = 0; i < orderedCheckpoints.Count - 1; i++)
-                    {
-                        var cp1 = orderedCheckpoints[i];
-                        var cp2 = orderedCheckpoints[i + 1];
-                        <line x1="@(cp1.X)%" y1="@(cp1.Y)%"
-                              x2="@(cp2.X)%" y2="@(cp2.Y)%" class="race-route-line" />
-                    }
+                    for (int i = 0; i < orderedCheckpoints.Count - 1; i++) { /* ... line rendering ... */ <line x1="@(orderedCheckpoints[i].X)%" y1="@(orderedCheckpoints[i].Y)%" x2="@(orderedCheckpoints[i+1].X)%" y2="@(orderedCheckpoints[i+1].Y)%" class="race-route-line" /> }
                 }
-
-                @if (selectedStudent != null)
-                {
-                    var studentMiles = selectedStudent.LapsRun * 50;
-                    var studentPathPoints = GetStudentPath(studentMiles);
-                    for (int i = 0; i < studentPathPoints.Count - 1; i++)
-                    {
-                        var p1 = studentPathPoints[i];
-                        var p2 = studentPathPoints[i + 1];
-                        if (p1.X >= 0 && p1.Y >= 0 && p2.X >= 0 && p2.Y >= 0)
-                        {
-                            <line x1="@(p1.X)%" y1="@(p1.Y)%"
-                                  x2="@(p2.X)%" y2="@(p2.Y)%"
-                                  class="student-progress-line" />
-                        }
-                    }
+                @if (selectedStudent != null) { /* Selected Student Progress Line */
+                    var studentMiles = selectedStudent.LapsRun * 50; var studentPathPoints = GetStudentPath(studentMiles);
+                    for (int i = 0; i < studentPathPoints.Count - 1; i++) { var p1 = studentPathPoints[i]; var p2 = studentPathPoints[i + 1]; if (p1.X >= 0 && p1.Y >= 0 && p2.X >= 0 && p2.Y >= 0) { <line x1="@(p1.X)%" y1="@(p1.Y)%" x2="@(p2.X)%" y2="@(p2.Y)%" class="student-progress-line" /> } }
                 }
             </svg>
 
             @foreach (var cp in activeRace.Checkpoints)
-            {
-                <div class="checkpoint-pin" 
-                     style="left: @(cp.X)%; top: @(cp.Y)%; z-index: 10;"
-                     @onclick="() => SelectCheckpoint(cp)">
-                    <FluentTooltip AnchorId="@($"pin-{cp.CheckpointId}")" Delay="0">
-                        @cp.City, @cp.State (@cp.CumulativeMiles mi)
-                    </FluentTooltip>
-                    <div id="@($"pin-{cp.CheckpointId}")"></div>
+            { /* Checkpoint Pins with Unique IDs */
+                var anchorId = $"pin-{activeRace.RaceId}-{cp.CheckpointId}"; // Ensure unique ID across races
+                <div @key="@($"checkpoint-{cp.CheckpointId}")" class="checkpoint-pin" style="left: @(cp.X)%; top: @(cp.Y)%; z-index: 10;" @onclick="() => SelectCheckpoint(cp)">
+                    <FluentTooltip Anchor="@anchorId" Delay="0"> @cp.City, @cp.State (@cp.CumulativeMiles mi) </FluentTooltip>
+                    <div id="@anchorId"></div> @* Use the unique ID *@
                 </div>
             }
 
-            @if (hoveredStudent != null && selectedStudent == null)
-            {
-                var hoverMiles = hoveredStudent.LapsRun * 50;
-                var (hoverX, hoverY) = GetStudentInterpolatedPosition(hoverMiles);
-                <div class="student-hover-popup" style="left: @(hoverX)%; top: @(hoverY)%; z-index: 25;">
-                    <div class="popup-header">
-                        <strong>@hoveredStudent.Name</strong>
-                    </div>
-                    <div class="popup-body">
-                        <p>@hoverMiles miles</p>
-                        <small>(Click pin to select)</small>
-                    </div>
-                </div>
-            }
+             @if (hoveredStudent != null && selectedStudent == null) { /* Student Hover Popup */
+                 var hoverMiles = hoveredStudent.LapsRun * 50; var (hoverX, hoverY) = GetStudentInterpolatedPosition(hoverMiles);
+                 if (hoverX >= 0) { <div class="student-hover-popup" style="left: @(hoverX)%; top: @(hoverY)%; z-index: 25;"><div class="popup-header"><strong>@hoveredStudent.Name</strong></div><div class="popup-body"><p>@hoverMiles miles</p><small>(Click pin to select)</small></div></div> }
+             }
 
             @if (raceParticipantsStudents != null)
-            {
+            { /* Student Pins on Map with Unique IDs */
                 if (selectedStudent != null)
-                {
-                    // --- RENDER ONLY THE SELECTED STUDENT ---
-                    var studentMiles = selectedStudent.LapsRun * 50;
-                    var currentLocation = GetCurrentLocation(studentMiles);
-                    var (studentX, studentY) = GetStudentInterpolatedPosition(studentMiles);
-                    @if (studentX >= 0)
-                    {
-                        <div class="student-pin" style="left: @(studentX)%; top: @(studentY)%; z-index: 10;">
-                            <FluentTooltip AnchorId="@($"student-pin-{selectedStudent.StudentId}")" Delay="0">
-                                @selectedStudent.Name: @studentMiles miles (@currentLocation)
-                            </FluentTooltip>
-                            <div id="@($"student-pin-{selectedStudent.StudentId}")"></div>
+                { // RENDER ONLY THE SELECTED STUDENT
+                    var studentMiles = selectedStudent.LapsRun * 50; var currentLocation = GetCurrentLocation(studentMiles); var (studentX, studentY) = GetStudentInterpolatedPosition(studentMiles);
+                    if (studentX >= 0) {
+                        var anchorId = $"student-pin-{activeRace.RaceId}-{selectedStudent.StudentId}"; // Ensure unique ID
+                        <div @key="@($"sel-student-{selectedStudent.StudentId}")" class="student-pin selected" style="left: @(studentX)%; top: @(studentY)%; z-index: 15;">
+                            <FluentTooltip Anchor="@anchorId" Delay="0"> @selectedStudent.Name: @studentMiles miles (@currentLocation) </FluentTooltip>
+                            <div id="@anchorId"></div> @* Use the unique ID *@
                         </div>
                     }
                 }
                 else
-                {
-                    // --- RENDER ALL STUDENTS (NO STUDENT SELECTED) ---
-                    foreach (var student in raceParticipantsStudents)
-                    {
-                        var studentMiles = student.LapsRun * 50;
-                        var currentLocation = GetCurrentLocation(studentMiles);
-                        var (studentX, studentY) = GetStudentInterpolatedPosition(studentMiles);
-                        @if (studentX >= 0)
-                        {
-                            <div class="student-pin"
-                                 style="left: @(studentX)%; top: @(studentY)%; z-index: 10;"
-                                 @onmouseenter="() => StudentPinMouseEnter(student)"
-                                 @onmouseleave="StudentPinMouseLeave"
-                                 @onclick="() => SelectStudentFromPin(student)">
-                                <FluentTooltip AnchorId="@($"student-pin-{student.StudentId}")" Delay="0">
-                                    @student.Name: @studentMiles miles (@currentLocation)
-                                </FluentTooltip>
-                                <div id="@($"student-pin-{student.StudentId}")"></div>
+                { // RENDER ALL PARTICIPATING STUDENTS
+                    @foreach (var student in raceParticipantsStudents) {
+                        var studentMiles = student.LapsRun * 50; var currentLocation = GetCurrentLocation(studentMiles); var (studentX, studentY) = GetStudentInterpolatedPosition(studentMiles);
+                        if (studentX >= 0) {
+                            var anchorId = $"student-pin-{activeRace.RaceId}-{student.StudentId}"; // Ensure unique ID
+                            <div @key="@($"all-student-{student.StudentId}")" class="student-pin" style="left: @(studentX)%; top: @(studentY)%; z-index: 10;"
+                                 @onmouseenter="() => StudentPinMouseEnter(student)" @onmouseleave="StudentPinMouseLeave" @onclick="() => SelectStudentFromPin(student)">
+                                <FluentTooltip Anchor="@anchorId" Delay="0"> @student.Name: @studentMiles miles (@currentLocation) </FluentTooltip>
+                                <div id="@anchorId"></div> @* Use the unique ID *@
                             </div>
                         }
                     }
                 }
             }
 
-            @if (selectedCheckpoint != null)
-            {
-                <div class="checkpoint-popup" style="left: @(selectedCheckpoint.X)%; top: @(selectedCheckpoint.Y)%; z-index: 20;">
-                    <div class="popup-header">
-                        <strong>@selectedCheckpoint.City</strong>
-                        <button class="close-btn" @onclick="() => selectedCheckpoint = null">×</button>
-                    </div>
-                    <div class="popup-body">
-                        @if (studentsAtCheckpoint.Any())
-                        {
-                            <ul>
-                                @foreach (var s in studentsAtCheckpoint)
-                                {
-                                    <li>@s.Name (@(s.LapsRun * 50) mi)</li>
-                                }
-                            </ul>
-                        }
-                        else
-                        {
-                            <p>No students are here.</p>
-                        }
-                    </div>
-                </div>
+            @if (selectedCheckpoint != null) { /* Checkpoint Popup */
+                 <div class="checkpoint-popup" style="left: @(selectedCheckpoint.X)%; top: @(selectedCheckpoint.Y)%; z-index: 20;"><div class="popup-header"><strong>@selectedCheckpoint.City</strong><button class="close-btn" @onclick="() => selectedCheckpoint = null">×</button></div><div class="popup-body"> @if (studentsAtCheckpoint.Any()) { <ul> @foreach (var s in studentsAtCheckpoint) { <li>@s.Name (@(s.LapsRun * 50) mi)</li> } </ul> } else { <p>No participating students have reached here yet.</p> } </div></div>
             }
         </div>
     </FluentCard>
 }
-else
-{
-    <p><em>Loading race data... (No races found. Please create one in the Admin panel).</em></p>
-}
+else if (allRaces == null) { <p><em>Loading race data...</em></p> }
+else { <p><em>No races found. Please create one in the Admin panel.</em></p> }
 
 
-@if (raceParticipantsStudents == null)
-{
-    <p><em>Loading student progress...</em></p>
-}
-else
+@* --- Student Progress Table Card --- *@
+@if (raceParticipantsStudents == null && activeRace != null) { <p><em>Loading student progress...</em></p> }
+else if (activeRace != null && raceParticipantsStudents != null)
 {
     <FluentCard>
-        <h3>Student Progress</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3>Student Progress</h3>
+             @if (availableGroupsInRace != null && availableGroupsInRace.Count > 1) { <div style="display: flex; align-items: center; gap: 0.5rem;"><FluentLabel>Filter by Group:</FluentLabel><FluentSelect TOption="GroupFilterItem" Items="@availableGroupsInRace" OptionValue="@(g => g.GroupId.ToString())" OptionText="@(g => g.Name)" @bind-Value="selectedGroupIdFilterString" @bind-Value:after="HandleGroupFilterChange" Style="min-width: 150px;" /></div> }
+        </div>
 
-        <FluentDataGrid TGridItem="Student" Items="@raceParticipantsStudents.AsQueryable()" GridTemplateColumns="2fr 1fr 1fr 2fr 150px">
-            <TemplateColumn Title="Student Name">
-                @context.Name
-            </TemplateColumn>
-            <TemplateColumn Title="Laps Run">
-                @context.LapsRun
-            </TemplateColumn>
-            <TemplateColumn Title="Total Miles">
-                @{
-                    // We do this in a code block to re-use the variable
-                    var totalMiles = context.LapsRun * 50;
-                }
-                @totalMiles miles
-            </TemplateColumn>
-
-            <TemplateColumn Title="Current Location">
-                @GetCurrentLocation(context.LapsRun * 50)
-            </TemplateColumn>
-
-            <TemplateColumn Title="Update Laps">
-                <div style="display: flex; gap: 5px;">
-                    <FluentButton Appearance="Appearance.Accent" @onclick="() => AddLap(context)">
-                        +1 Lap
-                    </FluentButton>
-
-                    <FluentButton Appearance="Appearance.Stealth" @onclick="() => SubtractLap(context)">
-                        -1 Lap
-                    </FluentButton>
-                </div>
-            </TemplateColumn>
-
-        </FluentDataGrid>
+        @if (!FilteredStudentsForTable.Any()) { <p><em>No students match the current filter or are assigned to this race.</em></p> }
+        else {
+             <FluentDataGrid TGridItem="Student" Items="@FilteredStudentsForTable.AsQueryable()" GridTemplateColumns="2fr 1fr 1fr 1fr 2fr 150px">
+                 <TemplateColumn Title="Student Name"> @context.Name </TemplateColumn>
+                 <TemplateColumn Title="Group"> @(context.Group?.Name ?? "N/A") </TemplateColumn>
+                 <TemplateColumn Title="Laps Run"> @context.LapsRun </TemplateColumn>
+                 <TemplateColumn Title="Total Miles"> @(context.LapsRun * 50) miles </TemplateColumn>
+                 <TemplateColumn Title="Current Location"> @GetCurrentLocation(context.LapsRun * 50) </TemplateColumn>
+                 <TemplateColumn Title="Update Laps"> <div style="display: flex; gap: 5px;"><FluentButton Appearance="Appearance.Accent" @onclick="() => AddLap(context)"> +1 Lap </FluentButton><FluentButton Appearance="Appearance.Stealth" @onclick="() => SubtractLap(context)" Disabled="context.LapsRun <= 0"> -1 Lap </FluentButton></div> </TemplateColumn>
+             </FluentDataGrid>
+         }
     </FluentCard>
 }
 
-
+@* --- Code Block (Unchanged from previous correct version) --- *@
 @code {
-    // Renamed: This will now hold only the students PARTICIPATING in the active race
-    private List<Student> raceParticipantsStudents;
+    // ---- State Variables (Keep as they were) ----
+    private List<Student> raceParticipantsStudents = new List<Student>();
     private Race activeRace;
     private Student selectedStudent;
-
     private List<Race> allRaces;
-    private string selectedRaceId; // Holds the ID from the race dropdown
-
-    private string selectedStudentString; // Holds the ID from the student dropdown
+    private string selectedRaceId;
+    private string selectedStudentString;
     private Checkpoint selectedCheckpoint;
     private List<Student> studentsAtCheckpoint = new List<Student>();
-
     private Student hoveredStudent;
+    private List<GroupFilterItem> availableGroupsInRace = new List<GroupFilterItem>();
+    private string selectedGroupIdFilterString = "0"; // "0" for "All Groups"
+
+    private class GroupFilterItem { public int GroupId { get; set; } public string Name { get; set; } }
+
+    private List<Student> FilteredStudentsForTable =>
+        (raceParticipantsStudents ?? new List<Student>())
+        .Where(s => selectedGroupIdFilterString == "0" || (s.GroupId?.ToString() ?? "-1") == selectedGroupIdFilterString) // Handle null GroupId
+        .ToList();
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadAllRaces(); // Load races first
-
-        // Load data for the first race by default
+        await LoadAllRaces();
         if (allRaces != null && allRaces.Any())
         {
-            var firstRace = allRaces.First();
-            selectedRaceId = firstRace.RaceId.ToString();
-            await LoadActiveRaceData(firstRace.RaceId); // Loads race details AND participating students
+            selectedRaceId = allRaces.First().RaceId.ToString();
+            // Use TryParse for safety on initial load too
+            if(int.TryParse(selectedRaceId, out int initialRaceId))
+            {
+                await LoadActiveRaceData(initialRaceId);
+            }
         }
         else
         {
-            // Handle case with no races
+            // Ensure lists are initialized even if no races exist
             raceParticipantsStudents = new List<Student>();
+            PopulateGroupFilterItems();
         }
-
-        // Default to "Show All" (no specific student selected) within the current race
-        ClearStudentSelection();
     }
 
-    // --- METHOD RENAMED & MODIFIED ---
-    // Was LoadStudents(), now specifically loads participants for the current race
     private async Task LoadRaceParticipants(int raceId)
     {
-        // Fetch RaceParticipant entries for the given raceId,
-        // including the related Student data (and their Group for display)
-        var participants = await DbContext.RaceParticipants
-                                    .Where(rp => rp.RaceId == raceId)
-                                    .Include(rp => rp.Student)
-                                        .ThenInclude(s => s.Group) // Include Group info
-                                    .OrderBy(rp => rp.Student.Name) // Order by student name
-                                    .ToListAsync();
-
-        // Extract just the Student objects from the participants list
-        raceParticipantsStudents = participants.Select(rp => rp.Student).ToList();
-
-        Console.WriteLine($"Loaded {raceParticipantsStudents?.Count ?? 0} students for Race ID: {raceId}"); // Debug log
+        List<Student> loadedStudents = new List<Student>(); // Load into temp list
+        try
+        {
+            var participants = await DbContext.RaceParticipants
+                                        .Where(rp => rp.RaceId == raceId)
+                                        .Include(rp => rp.Student).ThenInclude(s => s.Group)
+                                        .OrderBy(rp => rp.Student.Name)
+                                        .AsNoTracking() // Read-only query might help performance/stability
+                                        .ToListAsync();
+            loadedStudents = participants.Select(rp => rp.Student).ToList();
+        }
+        catch (Exception ex)
+        {
+             Console.WriteLine($"Error loading race participants: {ex.Message}");
+             // Keep loadedStudents as empty list
+        }
+        finally
+        {
+             // Update state AFTER await
+             raceParticipantsStudents = loadedStudents;
+             PopulateGroupFilterItems();
+        }
     }
-    // --- END OF MODIFICATION ---
+
+    private void PopulateGroupFilterItems()
+    {
+        availableGroupsInRace = new List<GroupFilterItem> { new GroupFilterItem { GroupId = 0, Name = "All Groups" } };
+        if (raceParticipantsStudents != null)
+        {
+            var groups = raceParticipantsStudents
+                            .Where(s => s.Group != null)
+                            .Select(s => s.Group)
+                            .DistinctBy(g => g.GroupId)
+                            .OrderBy(g => g.Name);
+            availableGroupsInRace.AddRange(groups.Select(g => new GroupFilterItem { GroupId = g.GroupId, Name = g.Name }));
+        }
+         if (!availableGroupsInRace.Any(g => g.GroupId.ToString() == selectedGroupIdFilterString))
+         {
+             selectedGroupIdFilterString = "0";
+         }
+    }
 
     private async Task LoadAllRaces()
     {
-        allRaces = await DbContext.Races.OrderByDescending(r => r.Year).ThenBy(r => r.Name).ToListAsync();
+         try
+         {
+            allRaces = await DbContext.Races.OrderByDescending(r => r.Year).ThenBy(r => r.Name).ToListAsync();
+         }
+         catch (Exception ex)
+         {
+             Console.WriteLine($"Error loading all races: {ex.Message}");
+             allRaces = new List<Race>(); // Ensure list exists even on error
+         }
     }
 
-    // --- MODIFIED METHOD ---
-    // Now also calls LoadRaceParticipants after loading the race details
+    // --- REVISED State Reset Logic ---
     private async Task LoadActiveRaceData(int raceId)
     {
-        activeRace = await DbContext.Races
-            .Include(r => r.Checkpoints)
-            // No longer need to include RaceParticipants here unless needed for race details itself
-            .FirstOrDefaultAsync(r => r.RaceId == raceId);
-
-        if (activeRace != null)
-        {
-            await LoadRaceParticipants(raceId); // Load students specifically for this race
-        }
-        else
-        {
-            raceParticipantsStudents = new List<Student>(); // Clear students if race not found
-        }
-
-        // Reset selections when race changes
-        ClearStudentSelection();
-        selectedCheckpoint = null;
-        studentsAtCheckpoint.Clear();
-        hoveredStudent = null; // Clear hover state
-    }
-    // --- END OF MODIFICATION ---
-
-    // --- MODIFIED METHOD ---
-    // Calls the updated LoadActiveRaceData which handles student loading
-    private async Task HandleRaceChangeAsync()
-    {
-        if (int.TryParse(selectedRaceId, out int raceId))
-        {
-            await LoadActiveRaceData(raceId); // This now loads the race AND its students
-        }
-        else
-        {
-            // Handle case where parsing fails (e.g., "-- Select --" option)
-            activeRace = null;
-            raceParticipantsStudents = new List<Student>();
-            ClearStudentSelection();
-            selectedCheckpoint = null;
-            studentsAtCheckpoint.Clear();
-            hoveredStudent = null;
-        }
-
-        StateHasChanged(); // Update the UI
-    }
-    // --- END OF MODIFICATION ---
-
-    private async Task AddLap(Student studentToUpdate)
-    {
-        if (studentToUpdate == null) return;
-        studentToUpdate.LapsRun++;
-        DbContext.Students.Update(studentToUpdate); // Update the specific student
-        await DbContext.SaveChangesAsync();
-        // No need to reload all students, just update UI
-        StateHasChanged();
-    }
-
-    private async Task SubtractLap(Student studentToUpdate)
-    {
-        if (studentToUpdate == null) return;
-        if (studentToUpdate.LapsRun > 0)
-        {
-            studentToUpdate.LapsRun--;
-            DbContext.Students.Update(studentToUpdate);
-            await DbContext.SaveChangesAsync();
-            // No need to reload all students, just update UI
-            StateHasChanged();
-        }
-    }
-
-    // --- Helper methods (GetCurrentLocation, GetCurrentCheckpointForStudent, GetNextCheckpoint, GetStudentInterpolatedPosition, GetStudentPath) remain unchanged ---
-    // They operate on the `activeRace` and `studentMiles`, which are still valid.
-    private string GetCurrentLocation(int studentMiles)
-    {
-        if (activeRace == null || !activeRace.Checkpoints.Any())
-        {
-            return "No race loaded";
-        }
-        var lastCheckpoint = activeRace.Checkpoints
-            .Where(c => c.CumulativeMiles <= studentMiles)
-            .OrderByDescending(c => c.CumulativeMiles)
-            .FirstOrDefault();
-        if (lastCheckpoint == null)
-        {
-            // Check if there's a starting checkpoint (0 miles)
-            var startCp = activeRace.Checkpoints.FirstOrDefault(c => c.CumulativeMiles == 0);
-            if (startCp != null && studentMiles > 0)
-            {
-                return $"Between Start and {GetNextCheckpoint(0)?.City ?? "first checkpoint"}"; // Indicate they've started but not reached CP1
-            }
-            return "Not started"; // Or exactly at 0 miles
-        }
-        var nextCheckpoint = GetNextCheckpoint(studentMiles);
-        if (nextCheckpoint == null)
-        {
-            // They are at or past the last checkpoint
-            return $"Finished at {lastCheckpoint.City}, {lastCheckpoint.State}";
-        }
-        // They are between lastCheckpoint and nextCheckpoint
-        return $"Between {lastCheckpoint.City}, {lastCheckpoint.State} and {nextCheckpoint.City}, {nextCheckpoint.State}";
-    }
-
-    private Checkpoint GetCurrentCheckpointForStudent(int studentMiles)
-    {
-        if (activeRace == null || !activeRace.Checkpoints.Any())
-        {
-            return null;
-        }
-        var lastCheckpoint = activeRace.Checkpoints
-            .Where(c => c.CumulativeMiles <= studentMiles)
-            .OrderByDescending(c => c.CumulativeMiles)
-            .FirstOrDefault();
-        if (lastCheckpoint == null)
-        {
-            return activeRace.Checkpoints.FirstOrDefault(c => c.CumulativeMiles == 0);
-        }
-        return lastCheckpoint;
-    }
-
-    private Checkpoint GetNextCheckpoint(int studentMiles)
-    {
-        if (activeRace == null) return null;
-        return activeRace.Checkpoints
-            .Where(c => c.CumulativeMiles > studentMiles)
-            .OrderBy(c => c.CumulativeMiles)
-            .FirstOrDefault();
-    }
-
-    private (double X, double Y) GetStudentInterpolatedPosition(int studentMiles)
-    {
-        var lastCp = GetCurrentCheckpointForStudent(studentMiles);
-        // If lastCp is null (studentMiles is less than the first checkpoint's miles, could be 0 or negative if data allows)
-        // We need a starting point to interpolate *from*. Let's assume the first checkpoint (ordered by miles) is the start.
-        if (lastCp == null)
-        {
-            var firstCp = activeRace?.Checkpoints.OrderBy(c => c.CumulativeMiles).FirstOrDefault();
-            if (firstCp == null || studentMiles < firstCp.CumulativeMiles) // Ensure studentMiles is actually before the first CP if it exists
-            {
-                // If no checkpoints exist OR studentMiles is negative/less than first CP, place them off-map or at a default start?
-                // Let's place off-map for now.
-                return (-100, -100);
-            }
-            // If studentMiles >= 0 but less than the first checkpoint > 0, treat the implicit 0-mile start as the lastCp.
-            // We need coordinates for this implicit start. If the first CP *is* at 0 miles, use it. Otherwise, assume (0,0)? Needs map context.
-            // For simplicity, if the first CP isn't 0 miles, we might default to its position or off-map. Let's use firstCp position if miles >= 0.
-            if (firstCp.CumulativeMiles > 0 && studentMiles >= 0)
-            {
-                lastCp = firstCp; // Treat first CP as the "previous" visually for interpolation base, though miles calculation needs care
-                                  // Correct approach: Define an explicit 0-mile checkpoint in the data or handle this case specially.
-                                  // Quick fix: If studentMiles < firstCp.CumulativeMiles but >= 0, interpolate between an assumed (0,0) and firstCp? Risky.
-                                  // Safest for now without 0-mile CP: Place at first CP location until they pass it.
-                                  //return (firstCp.X, firstCp.Y); // This isn't quite right as it doesn't show progress towards CP1.
-                return (-100, -100); // Back to off-map if no 0-mile start point defined.
-            }
-            // If firstCp.CumulativeMiles == 0, GetCurrentCheckpointForStudent should have returned it.
-        }
-
-
-        var nextCp = GetNextCheckpoint(studentMiles);
-        if (nextCp == null)
-        {
-            // At or past the last checkpoint
-            return (lastCp.X, lastCp.Y);
-        }
-
-        double segmentTotalMiles = nextCp.CumulativeMiles - lastCp.CumulativeMiles;
-        if (segmentTotalMiles <= 0)
-        {
-            return (lastCp.X, lastCp.Y); // Avoid division by zero if checkpoints have same miles
-        }
-
-        double milesIntoSegment = studentMiles - lastCp.CumulativeMiles;
-        double progressPercent = milesIntoSegment / segmentTotalMiles;
-
-        double newX = lastCp.X + (nextCp.X - lastCp.X) * progressPercent;
-        double newY = lastCp.Y + (nextCp.Y - lastCp.Y) * progressPercent;
-
-        return (newX, newY);
-    }
-
-    private List<(double X, double Y)> GetStudentPath(int studentMiles)
-    {
-        var pathPoints = new List<(double X, double Y)>();
-        if (activeRace == null || !activeRace.Checkpoints.Any()) return pathPoints;
-
-        var orderedCheckpoints = activeRace.Checkpoints.OrderBy(c => c.CumulativeMiles).ToList();
-        var startCp = orderedCheckpoints.FirstOrDefault(c => c.CumulativeMiles == 0); // Explicit start
-
-        // Checkpoints reached or passed
-        var reachedOrPassedCheckpoints = orderedCheckpoints
-            .Where(c => c.CumulativeMiles <= studentMiles)
-            .ToList(); // Already ordered
-
-        if (!reachedOrPassedCheckpoints.Any())
-        {
-            // Haven't reached any checkpoint yet (could be between 0 and CP1)
-            if (startCp != null && studentMiles > 0)
-            {
-                pathPoints.Add((startCp.X, startCp.Y)); // Start point
-                var (currentX, currentY) = GetStudentInterpolatedPosition(studentMiles); // Current pos
-                if (currentX >= 0 && currentY >= 0) pathPoints.Add((currentX, currentY)); // Add if valid
-            }
-            else if (startCp != null)
-            {
-                // Exactly at start (0 miles)
-                pathPoints.Add((startCp.X, startCp.Y));
-            }
-            // Else: No start CP defined or miles < 0. Path remains empty.
-        }
-        else
-        {
-            // Add all reached/passed checkpoints
-            foreach (var cp in reachedOrPassedCheckpoints)
-            {
-                pathPoints.Add((cp.X, cp.Y));
-            }
-
-            // Check if NOT finished
-            var finalCheckpoint = orderedCheckpoints.LastOrDefault();
-            bool isFinished = finalCheckpoint != null && studentMiles >= finalCheckpoint.CumulativeMiles;
-
-            if (!isFinished)
-            {
-                var (currentX, currentY) = GetStudentInterpolatedPosition(studentMiles);
-                // Add interpolated position if it's valid and different from the last added checkpoint
-                var lastAddedCp = reachedOrPassedCheckpoints.Last();
-                if (currentX >= 0 && currentY >= 0 && (Math.Abs(currentX - lastAddedCp.X) > 0.01 || Math.Abs(currentY - lastAddedCp.Y) > 0.01))
-                {
-                    pathPoints.Add((currentX, currentY));
-                }
-            }
-            // If finished, the path already includes the final checkpoint from the loop.
-        }
-        return pathPoints;
-    }
-    // --- End of Helper Methods ---
-
-
-    // --- MODIFIED METHOD ---
-    // Now operates on the filtered list `raceParticipantsStudents`
-    private void SelectCheckpoint(Checkpoint checkpoint)
-    {
-        selectedCheckpoint = checkpoint;
-        studentsAtCheckpoint.Clear();
-
-        if (checkpoint == null || raceParticipantsStudents == null)
-        {
-            StateHasChanged();
-            return; // Exit if no checkpoint or no students for the race
-        }
-
-        string targetLocationStart = $"Between Start and {checkpoint.City}"; // Handle start case
-        string targetLocationBetween = $"Between {checkpoint.City}, {checkpoint.State} and "; // Students heading TO this checkpoint
-        string targetLocationAt = $"{checkpoint.City}, {checkpoint.State}"; // Students AT this checkpoint (or between this and next)
-        string targetLocationFinished = $"Finished at {checkpoint.City}, {checkpoint.State}"; // If it's the last one
-
-        foreach (var student in raceParticipantsStudents) // Use the filtered list
-        {
-            var studentMiles = student.LapsRun * 50;
-            var studentLocation = GetCurrentLocation(studentMiles); // Use updated GetCurrentLocation
-
-            // Check if the student is considered "at" this checkpoint
-            // This means they have passed it but not the next one, OR it's the final one they finished at.
-            var studentLastCp = GetCurrentCheckpointForStudent(studentMiles);
-            if (studentLastCp?.CheckpointId == checkpoint.CheckpointId)
-            {
-                studentsAtCheckpoint.Add(student);
-            }
-            // Alternatively, check based on the location string if GetCurrentLocation logic matches your definition of "at"
-            // if (studentLocation.Contains(targetLocationAt) || studentLocation == targetLocationFinished) { ... }
-        }
-
-        StateHasChanged();
-    }
-    // --- END OF MODIFICATION ---
-
-    private void ClearStudentSelection()
-    {
+        // 1. Clear dependent state
         selectedStudent = null;
         selectedStudentString = null;
-        // Don't call StateHasChanged here if called during initialization or already part of another UI update
-    }
-
-    // --- MODIFIED METHOD ---
-    // Finds the student within the current `raceParticipantsStudents` list
-    private void SelectedStudentChanged()
-    {
-        if (int.TryParse(selectedStudentString, out int studentId) && raceParticipantsStudents != null)
-        {
-            // Find student within the participants list
-            selectedStudent = raceParticipantsStudents.FirstOrDefault(s => s.StudentId == studentId);
-        }
-        else
-        {
-            selectedStudent = null;
-        }
-        StateHasChanged(); // Update UI after selection changes
-    }
-    // --- END OF MODIFICATION ---
-
-
-    // --- MODIFIED METHOD ---
-    // Checks against `raceParticipantsStudents`
-    private void SelectStudentFromPin(Student studentToSelect)
-    {
-        // Ensure the student exists in the current race participants
-        if (studentToSelect != null && raceParticipantsStudents != null && raceParticipantsStudents.Any(s => s.StudentId == studentToSelect.StudentId))
-        {
-            selectedStudent = studentToSelect;
-            selectedStudentString = studentToSelect.StudentId.ToString();
-            hoveredStudent = null; // Hide hover popup once selected
-            StateHasChanged(); // Update the UI
-        }
-        else
-        {
-            // Optional: Handle case where clicked pin doesn't match current race participants (shouldn't happen with correct filtering)
-            Console.WriteLine($"Attempted to select student ID {studentToSelect?.StudentId} not found in current race participants.");
-        }
-    }
-    // --- END OF MODIFICATION ---
-
-    // Hover methods likely don't need changes, as they operate on the `student` object passed in
-    private void StudentPinMouseEnter(Student student)
-    {
-        if (selectedStudent == null) // Only show hover popup in "Show All" mode (within the current race)
-        {
-            hoveredStudent = student;
-            StateHasChanged(); // Need this for hover to update UI reliably
-        }
-    }
-
-    private void StudentPinMouseLeave()
-    {
+        selectedCheckpoint = null;
+        studentsAtCheckpoint?.Clear();
         hoveredStudent = null;
-        StateHasChanged(); // Need this for hover to update UI reliably
+        selectedGroupIdFilterString = "0";
+
+        // 2. Set primary data to empty/default state (NOT null)
+        activeRace = null; // Can still be null temporarily
+        raceParticipantsStudents = new List<Student>(); // Use empty list
+        PopulateGroupFilterItems(); // Reset filter dropdown based on empty list
+
+        // 3. Update UI *once* after clearing
+        StateHasChanged(); // Use simple StateHasChanged, InvokeAsync might be overkill here
+
+        // 4. Load new data
+        Race loadedRace = null;
+        try {
+            loadedRace = await DbContext.Races
+                .Include(r => r.Checkpoints)
+                .AsNoTracking() // Read-only query might help performance/stability
+                .FirstOrDefaultAsync(r => r.RaceId == raceId);
+        } catch (Exception ex) {
+            Console.WriteLine($"Error loading race data for ID {raceId}: {ex.Message}");
+             // activeRace remains null, raceParticipantsStudents remains empty list
+             // UI will show "Loading..." or "No data" based on null checks
+            return;
+        }
+
+        // 5. Assign loaded race (could still be null if not found)
+        activeRace = loadedRace;
+
+        // 6. Load participants *if* race was found
+        if (activeRace != null)
+        {
+            await LoadRaceParticipants(raceId); // This updates raceParticipantsStudents and calls PopulateGroupFilterItems again
+        }
+        // else: raceParticipantsStudents is already an empty list
+
+        // 7. Final UI update happens automatically after await completes
+        // StateHasChanged(); // Usually not needed here
     }
+
+    private async Task HandleRaceChangeAsync()
+    {
+        string currentSelectedRaceId = selectedRaceId; // Capture value
+
+        if (int.TryParse(currentSelectedRaceId, out int raceId))
+        {
+            await LoadActiveRaceData(raceId);
+        }
+        else
+        {
+             activeRace = null;
+             raceParticipantsStudents = new List<Student>();
+             PopulateGroupFilterItems();
+             ClearStudentSelection();
+             selectedCheckpoint = null;
+             studentsAtCheckpoint?.Clear();
+             hoveredStudent = null;
+             selectedGroupIdFilterString = "0";
+             StateHasChanged(); // Manual update needed here as there's no await
+        }
+    }
+    // --- END REVISED ---
+
+    private void HandleGroupFilterChange()
+    {
+        StateHasChanged();
+    }
+
+    private async Task AddLap(Student studentToUpdate) {
+        if (studentToUpdate == null) return;
+        studentToUpdate.LapsRun++;
+        DbContext.Students.Update(studentToUpdate);
+        await DbContext.SaveChangesAsync();
+        StateHasChanged();
+     }
+    private async Task SubtractLap(Student studentToUpdate) {
+         if (studentToUpdate == null || studentToUpdate.LapsRun <= 0) return;
+        studentToUpdate.LapsRun--;
+        DbContext.Students.Update(studentToUpdate);
+        await DbContext.SaveChangesAsync();
+        StateHasChanged();
+     }
+    private string GetCurrentLocation(int studentMiles) {
+        if (activeRace == null || !activeRace.Checkpoints.Any()) return "No race loaded";
+        var lastCheckpoint = activeRace.Checkpoints.Where(c => c.CumulativeMiles <= studentMiles).OrderByDescending(c => c.CumulativeMiles).FirstOrDefault();
+        if (lastCheckpoint == null)
+        {
+            var startCp = activeRace.Checkpoints.FirstOrDefault(c => c.CumulativeMiles == 0);
+            if (startCp != null && studentMiles > 0) return $"Between Start and {GetNextCheckpoint(0)?.City ?? "first checkpoint"}";
+            return "Not started";
+        }
+        var nextCheckpoint = GetNextCheckpoint(studentMiles);
+        if (nextCheckpoint == null) return $"Finished at {lastCheckpoint.City}, {lastCheckpoint.State}";
+        return $"Between {lastCheckpoint.City}, {lastCheckpoint.State} and {nextCheckpoint.City}, {nextCheckpoint.State}";
+    }
+    private Checkpoint GetCurrentCheckpointForStudent(int studentMiles) {
+          if (activeRace == null || !activeRace.Checkpoints.Any()) return null;
+          var lastCheckpoint = activeRace.Checkpoints.Where(c => c.CumulativeMiles <= studentMiles).OrderByDescending(c => c.CumulativeMiles).FirstOrDefault();
+          if (lastCheckpoint == null) return activeRace.Checkpoints.FirstOrDefault(c => c.CumulativeMiles == 0);
+          return lastCheckpoint;
+      }
+    private Checkpoint GetNextCheckpoint(int studentMiles) {
+         if (activeRace == null) return null;
+         return activeRace.Checkpoints.Where(c => c.CumulativeMiles > studentMiles).OrderBy(c => c.CumulativeMiles).FirstOrDefault();
+     }
+      private (double X, double Y) GetStudentInterpolatedPosition(int studentMiles) {
+          var lastCp = GetCurrentCheckpointForStudent(studentMiles);
+           if (lastCp == null)
+           {
+               // Simplified: If no 'last' checkpoint (before start or no 0-mile CP), return off-map
+               return (-100, -100);
+           }
+          var nextCp = GetNextCheckpoint(studentMiles);
+          if (nextCp == null) return (lastCp.X, lastCp.Y); // Finished or at last CP
+          double segmentTotalMiles = nextCp.CumulativeMiles - lastCp.CumulativeMiles;
+          if (segmentTotalMiles <= 0) return (lastCp.X, lastCp.Y);
+          double milesIntoSegment = studentMiles - lastCp.CumulativeMiles;
+          double progressPercent = Math.Clamp(milesIntoSegment / segmentTotalMiles, 0.0, 1.0);
+          double newX = lastCp.X + (nextCp.X - lastCp.X) * progressPercent;
+          double newY = lastCp.Y + (nextCp.Y - lastCp.Y) * progressPercent;
+          return (newX, newY);
+      }
+      private List<(double X, double Y)> GetStudentPath(int studentMiles) {
+           var pathPoints = new List<(double X, double Y)>();
+           if (activeRace == null || !activeRace.Checkpoints.Any()) return pathPoints;
+           var orderedCheckpoints = activeRace.Checkpoints.OrderBy(c => c.CumulativeMiles).ToList();
+           var startCp = orderedCheckpoints.FirstOrDefault(c => c.CumulativeMiles == 0);
+           var reachedOrPassedCheckpoints = orderedCheckpoints.Where(c => c.CumulativeMiles <= studentMiles).ToList();
+           if (!reachedOrPassedCheckpoints.Any()){
+               if (startCp != null && studentMiles > 0) {
+                   pathPoints.Add((startCp.X, startCp.Y));
+                   var (currentX, currentY) = GetStudentInterpolatedPosition(studentMiles);
+                   if (currentX >= 0 && currentY >= 0) pathPoints.Add((currentX, currentY));
+               } else if (startCp != null) { // Handle case of being exactly at 0 miles
+                   pathPoints.Add((startCp.X, startCp.Y));
+               }
+           } else {
+               foreach (var cp in reachedOrPassedCheckpoints) { pathPoints.Add((cp.X, cp.Y)); }
+               var finalCheckpoint = orderedCheckpoints.LastOrDefault();
+               bool isFinished = finalCheckpoint != null && studentMiles >= finalCheckpoint.CumulativeMiles;
+               if (!isFinished) {
+                   var (currentX, currentY) = GetStudentInterpolatedPosition(studentMiles);
+                   var lastAddedCp = reachedOrPassedCheckpoints.Last();
+                   if (currentX >= 0 && currentY >= 0 && (Math.Abs(currentX - lastAddedCp.X) > 0.01 || Math.Abs(currentY - lastAddedCp.Y) > 0.01)) {
+                       pathPoints.Add((currentX, currentY));
+                   }
+               }
+           }
+           return pathPoints;
+       }
+    private void SelectCheckpoint(Checkpoint checkpoint) {
+          selectedCheckpoint = checkpoint;
+          studentsAtCheckpoint.Clear();
+          if (checkpoint == null || raceParticipantsStudents == null) { StateHasChanged(); return; }
+          foreach (var student in raceParticipantsStudents) {
+              var studentMiles = student.LapsRun * 50;
+              var studentLastCp = GetCurrentCheckpointForStudent(studentMiles);
+              // Simplified: If the last checkpoint passed *is* this one, add them.
+              if (studentLastCp?.CheckpointId == checkpoint.CheckpointId) {
+                  studentsAtCheckpoint.Add(student);
+              }
+          }
+          StateHasChanged();
+      }
+
+    private void ClearStudentSelection() {
+        selectedStudent = null;
+        selectedStudentString = null;
+        StateHasChanged(); // Ensure UI updates when explicitly cleared
+     }
+    private void SelectedStudentChanged() {
+         if (int.TryParse(selectedStudentString, out int studentId) && raceParticipantsStudents != null) {
+             selectedStudent = raceParticipantsStudents.FirstOrDefault(s => s.StudentId == studentId);
+         } else {
+             selectedStudent = null;
+         }
+         // StateHasChanged(); // Implicitly called by bind:after unless logic changes require explicit update
+     }
+    private void SelectStudentFromPin(Student studentToSelect) {
+         if (studentToSelect != null && raceParticipantsStudents != null && raceParticipantsStudents.Any(s => s.StudentId == studentToSelect.StudentId)) {
+             selectedStudent = studentToSelect;
+             selectedStudentString = studentToSelect.StudentId.ToString();
+             hoveredStudent = null;
+             StateHasChanged();
+         } else {
+              Console.WriteLine($"Attempted to select student ID {studentToSelect?.StudentId} not found in current race participants.");
+          }
+     }
+    private void StudentPinMouseEnter(Student student) {
+         if (selectedStudent == null) {
+             hoveredStudent = student;
+             StateHasChanged();
+         }
+     }
+    private void StudentPinMouseLeave() {
+         hoveredStudent = null;
+          StateHasChanged();
+      }
 }
 
 <style>
@@ -660,6 +468,15 @@ else
         background-color: #005a9e; /* Darker blue on hover */
     }
 
+    /* Style for selected student pin */
+    .student-pin.selected {
+        background-color: #ffc107; /* Example: yellow for selected */
+        border-color: #e6a700;
+        width: 22px; /* Make it slightly larger */
+        height: 22px;
+        z-index: 15; /* Ensure it's above other student pins */
+    }
+
     .race-route-line {
         stroke: #d13438; /* A red to match your pins */
         stroke-width: 3;
@@ -668,21 +485,19 @@ else
     }
 
     .student-progress-line {
-    stroke: #0078d4;
-    stroke-width: 4;
-    stroke-linecap: round;
-    opacity: 0.8;
-    fill: none; /* -- ADD THIS to prevent weird fill-in colors */
+        stroke: #0078d4;
+        stroke-width: 4;
+        stroke-linecap: round;
+        opacity: 0.8;
+        fill: none; /* -- ADD THIS to prevent weird fill-in colors */
     }
 
-    /* === ADD ALL STYLES BELOW === */
     .checkpoint-popup {
         position: absolute;
         width: 200px;
         background-color: white;
         border-radius: 8px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-        /* This transform moves the popup to be *above* and *to the side* of the pin */
         transform: translate(-50%, -100%);
         margin-top: -15px; /* Adds a small gap above the pin */
         padding: 8px;
@@ -722,7 +537,6 @@ else
         padding: 5px 0;
     }
 
-    /* --- Styles for the new Student Hover Popup --- */
     .student-hover-popup {
         position: absolute;
         width: 150px; /* Smaller than checkpoint popup */
@@ -731,31 +545,29 @@ else
         color: #333; /* Darker text */
         border-radius: 6px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        /* Position above and slightly to the side */
         transform: translate(-50%, -100%);
-        margin-top: -15px; /* Gap above pin */
+        margin-top: -15px; 
         padding: 6px;
         font-size: 0.85rem;
-        pointer-events: none; /* Prevent popup from interfering with clicking the pin underneath */
+        pointer-events: none;
     }
 
-        .student-hover-popup .popup-header {
-            border-bottom: 1px solid #cce0ff; /* Lighter blue border */
-            padding-bottom: 4px;
-            margin-bottom: 4px;
-            justify-content: center; /* Center name */
-        }
+    .student-hover-popup .popup-header {
+        border-bottom: 1px solid #cce0ff; /* Lighter blue border */
+        padding-bottom: 4px;
+        margin-bottom: 4px;
+        justify-content: center; /* Center name */
+    }
 
-        .student-hover-popup .popup-body p,
-        .student-hover-popup .popup-body small {
-            margin: 0;
-            padding: 1px 0;
-            text-align: center;
-        }
+    .student-hover-popup .popup-body p,
+    .student-hover-popup .popup-body small {
+        margin: 0;
+        padding: 1px 0;
+        text-align: center;
+    }
 
-        .student-hover-popup .popup-body small {
-            font-size: 0.75rem;
-            color: #555;
-        }
-    /* --- End of Student Hover Popup Styles --- */
+    .student-hover-popup .popup-body small {
+        font-size: 0.75rem;
+        color: #555;
+    }
 </style>
