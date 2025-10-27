@@ -13,6 +13,11 @@ namespace RaceAcrossAmerica.Data
 
         public virtual ICollection<Checkpoint> Checkpoints { get; set; }
 
+        // --- NEW ---
+        // Navigation property for RaceParticipants (Many-to-Many join entity)
+        public virtual ICollection<RaceParticipant> RaceParticipants { get; set; }
+        // -------------
+
         public Race()
         {
             // This ensures the collection is an empty list, not null.

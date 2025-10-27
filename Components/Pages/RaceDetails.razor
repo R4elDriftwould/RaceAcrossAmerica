@@ -1,126 +1,272 @@
-﻿@page "/admin/race/{RaceId:int}"  
-@inject ApplicationDbContext DbContext  
-@inject NavigationManager NavManager  
+﻿@page "/admin/race/{RaceId:int}"
+@inject ApplicationDbContext DbContext
+@inject NavigationManager NavManager
+@inject IJSRuntime JSRuntime
 
-@if (race == null)  
-{  
-    <p><em>Loading race details...</em></p>  
-}  
-else  
-{  
+@* Back Link Placed Here - Before the main content *@
+<FluentAnchor Href="/admin" Appearance="Appearance.Hypertext" style="margin-bottom: 1rem; display: block;">
+    &larr; Back to Admin
+</FluentAnchor>
+
+@if (race == null)
+{
+    <p><em>Loading race details...</em></p>
+}
+else
+{
     <h3>Manage: @race.Name (@race.Year)</h3>
 
-    <FluentCard style="margin-bottom: 2rem;">
-        <h4>Add New Checkpoint</h4>
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 0.5fr 0.5fr; grid-gap: 1rem;">
+    <div class="race-details-layout">
 
-            <div>
-                <FluentTextField @bind-Value="newCheckpoint.City" Label="City" />
-            </div>
-            <div>
-                <FluentTextField @bind-Value="newCheckpoint.State" Label="State" />
-            </div>
-            <div>
-                <FluentNumberField @bind-Value="newCheckpoint.CumulativeMiles" Label="Cumulative Miles" />
-            </div>
+        @* === Checkpoint Management Section === *@
+        <div class="checkpoints-section">
+            @* Add Checkpoint Card - Added max-height and overflow *@
+            <FluentCard style="margin-bottom: 1rem; max-height: 300px; overflow-y: auto;"> @* ADJUST HEIGHT AS NEEDED *@
+                <h4 style="margin-bottom: 0.5rem;">Add New Checkpoint</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto auto; grid-gap: 0.5rem; align-items: end;">
+                    @* Input fields with reduced vertical space *@
+                    <div>
+                        <FluentTextField @bind-Value="newCheckpoint.City" Label="City" style="width: 100%;" />
+                    </div>
+                    <div>
+                        <FluentTextField @bind-Value="newCheckpoint.State" Label="State" style="width: 100%;" />
+                    </div>
+                    <div>
+                        <FluentNumberField @bind-Value="newCheckpoint.CumulativeMiles" Label="Miles" style="width: 100%;" />
+                    </div>
+                    <div>
+                        <FluentNumberField @bind-Value="newCheckpoint.X" Label="X%" style="width: 60px;" />
+                    </div>
+                    <div>
+                        <FluentNumberField @bind-Value="newCheckpoint.Y" Label="Y%" style="width: 60px;" />
+                    </div>
+                     <div style="grid-column: 1 / -1;">
+                         <FluentButton Appearance="Appearance.Accent" @onclick="AddCheckpointAsync" style="margin-top: 0.5rem;">
+                            Add Checkpoint
+                         </FluentButton>
+                     </div>
+                </div>
+            </FluentCard>
 
-            <div>
-                <FluentNumberField @bind-Value="newCheckpoint.X" Label="X %" />
-            </div>
-            <div>
-                <FluentNumberField @bind-Value="newCheckpoint.Y" Label="Y %" />
-            </div>
+            <FluentCard>
+                <h4>Existing Checkpoints</h4>
+                <FluentDataGrid TGridItem="Checkpoint" Items="@race.Checkpoints.OrderBy(c => c.CumulativeMiles).AsQueryable()" GridTemplateColumns="1fr 1fr 1fr 1fr auto">
+                     <TemplateColumn Title="City">@context.City</TemplateColumn>
+                     <TemplateColumn Title="State">@context.State</TemplateColumn>
+                     <TemplateColumn Title="Miles">@context.CumulativeMiles</TemplateColumn>
+                     <TemplateColumn Title="X, Y">@context.X, @context.Y</TemplateColumn>
+                     <TemplateColumn Title="">
+                         <FluentButton Appearance="Appearance.Stealth" @onclick="() => DeleteCheckpointAsync(context)">Delete</FluentButton>
+                     </TemplateColumn>
+                </FluentDataGrid>
+            </FluentCard>
         </div>
-        <FluentButton Appearance="Appearance.Accent" @onclick="AddCheckpointAsync" style="margin-top: 1rem;">
-            Add Checkpoint
-        </FluentButton>
-    </FluentCard>
 
-    <FluentCard>  
-        <h4>Existing Checkpoints</h4>
-        <FluentDataGrid TGridItem="Checkpoint" Items="@race.Checkpoints.OrderBy(c => c.CumulativeMiles).AsQueryable()" GridTemplateColumns="1fr 1fr 1fr">
-            <TemplateColumn Title="City">  
-                @context.City  
-            </TemplateColumn>  
-            <TemplateColumn Title="State">  
-                @context.State  
-            </TemplateColumn>  
-            <TemplateColumn Title="Miles">  
-                @context.CumulativeMiles  
-            </TemplateColumn>
-            <TemplateColumn Title=" X , Y ">
-                @context.X , @context.Y
-            </TemplateColumn>
+        @* === Student Participant Management Section === *@
+        <div class="students-section">
+            @* Add Participants Card - Added max-height and overflow *@
+            <FluentCard style="margin-bottom: 1rem; max-height: 300px; overflow-y: auto;"> @* ADJUST HEIGHT AS NEEDED *@
+                <h4 style="margin-bottom: 0.5rem;">Add Participants</h4>
 
-            <TemplateColumn Title="">
-                <FluentButton Appearance="Appearance.Stealth" @onclick="() => DeleteCheckpointAsync(context)">
-                    Delete
-                </FluentButton>
-            </TemplateColumn>
+                @* Add Individual Student *@
+                <div style="margin-bottom: 0.75rem;">
+                    <h5 style="margin-bottom: 0.25rem;">Add Student</h5>
+                     <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
+                        <FluentSelect TOption="Student" Items="@availableStudents" OptionValue="@(s => s.StudentId.ToString())" OptionText="@(s => s.Name)" @bind-Value="selectedStudentIdString" Label="Select Student" Style="flex-grow: 1;">
+                            <InitialValue>Select a student...</InitialValue>
+                        </FluentSelect>
+                        <FluentButton Appearance="Appearance.Accent" @onclick="AddStudentToRaceAsync" Disabled="string.IsNullOrEmpty(selectedStudentIdString)">Add</FluentButton>
+                    </div>
+                </div>
 
-        </FluentDataGrid>  
-    </FluentCard>  
+                @* Add Group *@
+                <div>
+                    <h5 style="margin-bottom: 0.25rem;">Add Group</h5>
+                     <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
+                        <FluentSelect TOption="Group" Items="@allGroups" OptionValue="@(g => g.GroupId.ToString())" OptionText="@(g => g.Name)" @bind-Value="selectedGroupIdString" Label="Select Group" Style="flex-grow: 1;">
+                            <InitialValue>Select a group...</InitialValue>
+                        </FluentSelect>
+                        <FluentButton Appearance="Appearance.Accent" @onclick="AddGroupToRaceAsync" Disabled="string.IsNullOrEmpty(selectedGroupIdString)">Add Group</FluentButton>
+                    </div>
+                </div>
+            </FluentCard>
 
-    <FluentAnchor Href="/admin" Appearance="Appearance.Hypertext" style="margin-top: 1rem;">  
-        &larr; Back to Admin  
-    </FluentAnchor>  
-}  
+            <FluentCard>
+                <h4>Current Participants (@(race?.RaceParticipants?.Count ?? 0))</h4>
+                 @if (race?.RaceParticipants == null || !race.RaceParticipants.Any())
+                 {
+                     <p>No students assigned to this race yet.</p>
+                 }
+                 else
+                 {
+                     <FluentDataGrid TGridItem="RaceParticipant" Items="@race.RaceParticipants.OrderBy(rp => rp.Student.Name).AsQueryable()" GridTemplateColumns="1fr 1fr auto">
+                          <TemplateColumn Title="Student Name">@context.Student?.Name</TemplateColumn>
+                          <TemplateColumn Title="Group">@(context.Student?.Group?.Name ?? "N/A")</TemplateColumn>
+                          <TemplateColumn Title="">
+                              <FluentButton Appearance="Appearance.Stealth" @onclick="() => RemoveStudentFromRaceAsync(context)">Remove</FluentButton>
+                          </TemplateColumn>
+                     </FluentDataGrid>
+                 }
+            </FluentCard>
+        </div>
+
+    </div> @* End race-details-layout *@
+
+} @* End main 'else' *@
+
+@* --- CSS --- *@
+<style>
+    .race-details-layout {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 1.5rem;
+        /* Prevent grid rows from stretching taller than their content */
+        align-items: start;
+    }
+
+    .checkpoints-section,
+    .students-section {
+         min-width: 300px;
+         display: flex; /* Use flexbox for vertical layout within the section */
+         flex-direction: column;
+         gap: 1rem; /* Control spacing between cards vertically */
+    }
+
+    /* Reduce default padding inside Fluent Cards slightly */
+    /* Adjust this padding value if needed */
+    .fluent-card {
+        padding: 0.75rem;
+    }
+
+    /* Reduce space below headers */
+    .fluent-card h4 { margin-bottom: 0.75rem; }
+    .fluent-card h5 { margin-bottom: 0.35rem; }
+
+</style>
 
 @code {
+    // --- Code-behind remains the same as the previous version ---
     [Parameter]
     public int RaceId { get; set; }
 
     private Race race;
     private Checkpoint newCheckpoint = new Checkpoint();
 
-    // This method runs when the page first loads
+    // Student Management Variables
+    private List<Student> allStudents;
+    private List<Group> allGroups;
+    private List<Student> availableStudents;
+    private string selectedStudentIdString;
+    private string selectedGroupIdString;
+
     protected override async Task OnParametersSetAsync()
     {
-        await LoadRaceDetails();
+        await LoadAllRequiredData();
     }
 
-    // --- NEW METHOD ---
-    // We moved the loading logic into its own method
-    // so we can call it anytime we need to refresh.
-    private async Task LoadRaceDetails()
+     private async Task LoadAllRequiredData()
     {
-        // Load the single race from the DB, AND include its related checkpoints
         race = await DbContext.Races
             .Include(r => r.Checkpoints)
+            .Include(r => r.RaceParticipants)
+                .ThenInclude(rp => rp.Student)
+                    .ThenInclude(s => s.Group)
             .FirstOrDefaultAsync(r => r.RaceId == RaceId);
+
+        if (race != null)
+        {
+            allStudents = await DbContext.Students.OrderBy(s => s.Name).ToListAsync();
+            allGroups = await DbContext.Groups.OrderBy(g => g.Name).ToListAsync();
+            var participantIds = race.RaceParticipants.Select(rp => rp.StudentId).ToHashSet();
+            availableStudents = allStudents.Where(s => !participantIds.Contains(s.StudentId)).ToList();
+        }
+        else
+        {
+            allStudents = new List<Student>();
+            allGroups = new List<Group>();
+            availableStudents = new List<Student>();
+            // Optional: Redirect if race not found
+            // NavManager.NavigateTo("/admin");
+        }
     }
 
-    // --- UPDATED METHOD ---
     private async Task AddCheckpointAsync()
     {
-        if (race != null && !string.IsNullOrWhiteSpace(newCheckpoint.City))
+        if (race != null && !string.IsNullOrWhiteSpace(newCheckpoint.City) && newCheckpoint.CumulativeMiles >= 0 && newCheckpoint.X >= 0 && newCheckpoint.Y >= 0)
         {
-            // 1. Set the Foreign Key
             newCheckpoint.RaceId = race.RaceId;
-
-            // 2. Add to DbContext and Save
             DbContext.Checkpoints.Add(newCheckpoint);
             await DbContext.SaveChangesAsync();
-
-            // 3. Clear the form for the next entry
             newCheckpoint = new Checkpoint();
-
-            // 4. THIS IS THE FIX:
-            // Instead of manually adding to the list, just
-            // reload everything fresh from the database.
-            await LoadRaceDetails();
+            await LoadAllRequiredData();
         }
+         else {
+             await JSRuntime.InvokeVoidAsync("alert", "Please fill in all checkpoint fields with valid values.");
+         }
     }
 
     private async Task DeleteCheckpointAsync(Checkpoint checkpointToDelete)
     {
-        // 1. Tell the DbContext to remove this object
         DbContext.Checkpoints.Remove(checkpointToDelete);
-
-        // 2. Save the change to the database
         await DbContext.SaveChangesAsync();
+        await LoadAllRequiredData();
+    }
 
-        // 3. Refresh the UI by reloading the race details
-        await LoadRaceDetails();
+    private async Task AddStudentToRaceAsync()
+    {
+        if (race == null || string.IsNullOrEmpty(selectedStudentIdString) || !int.TryParse(selectedStudentIdString, out int studentId)) return;
+
+        bool alreadyExists = await DbContext.RaceParticipants.AnyAsync(rp => rp.RaceId == RaceId && rp.StudentId == studentId);
+        if (!alreadyExists)
+        {
+            var participant = new RaceParticipant { RaceId = RaceId, StudentId = studentId };
+            DbContext.RaceParticipants.Add(participant);
+            await DbContext.SaveChangesAsync();
+            selectedStudentIdString = null;
+            await LoadAllRequiredData();
+        }
+        else
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "This student is already participating in this race.");
+            selectedStudentIdString = null;
+            await LoadAllRequiredData();
+        }
+    }
+
+    private async Task AddGroupToRaceAsync()
+    {
+         if (race == null || string.IsNullOrEmpty(selectedGroupIdString) || !int.TryParse(selectedGroupIdString, out int groupId)) return;
+
+        var participantIds = race.RaceParticipants.Select(rp => rp.StudentId).ToHashSet();
+        var studentsToAdd = await DbContext.Students
+                                    .Where(s => s.GroupId == groupId && !participantIds.Contains(s.StudentId))
+                                    .ToListAsync();
+
+        if (studentsToAdd.Any())
+        {
+            var newParticipants = studentsToAdd.Select(s => new RaceParticipant { RaceId = RaceId, StudentId = s.StudentId });
+            DbContext.RaceParticipants.AddRange(newParticipants);
+            await DbContext.SaveChangesAsync();
+            selectedGroupIdString = null;
+            await LoadAllRequiredData();
+        }
+        else
+        {
+             await JSRuntime.InvokeVoidAsync("alert", "All students in this group are already participating or the group is empty.");
+             selectedGroupIdString = null;
+             await LoadAllRequiredData();
+        }
+    }
+
+    private async Task RemoveStudentFromRaceAsync(RaceParticipant participantToRemove)
+    {
+        if (participantToRemove == null) return;
+        var existingParticipant = await DbContext.RaceParticipants.FindAsync(participantToRemove.RaceParticipantId);
+        if (existingParticipant != null)
+        {
+            DbContext.RaceParticipants.Remove(existingParticipant);
+            await DbContext.SaveChangesAsync();
+            await LoadAllRequiredData();
+        }
     }
 }
