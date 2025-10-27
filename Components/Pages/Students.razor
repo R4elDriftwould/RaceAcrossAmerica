@@ -47,9 +47,11 @@
                         @context.Name
                     </TemplateColumn>
                     <TemplateColumn Title="">
-                        <FluentButton Appearance="Appearance.Stealth" @onclick="() => DeleteGroupAsync(context)">
-                            Delete
-                        </FluentButton>
+                        <div style="display: flex; align-items: center; height: 100%; padding: 0;">
+                            <FluentButton Appearance="Appearance.Stealth" @onclick="() => DeleteGroupAsync(context)">
+                                Delete
+                            </FluentButton>
+                        </div>
                     </TemplateColumn>
                 </FluentDataGrid>
             }
